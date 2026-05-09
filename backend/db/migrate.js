@@ -52,8 +52,10 @@ module.exports = function runMigrations(db) {
     const isOldSchema = tableInfo && tableInfo.sql && tableInfo.sql.includes("'received'");
     if (isOldSchema) {
       const rows = db.prepare('SELECT * FROM status_updates').all([]);
+      try { db.exec('ROLLBACK'); } catch (_) {}
       db.exec('BEGIN');
       try {
+        db.exec('DROP TABLE IF EXISTS status_updates_v2');
         db.exec(`CREATE TABLE status_updates_v2 (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           donation_id INTEGER NOT NULL REFERENCES donations(id) ON DELETE CASCADE,
@@ -71,7 +73,7 @@ module.exports = function runMigrations(db) {
         db.exec('CREATE INDEX IF NOT EXISTS idx_status_donation ON status_updates(donation_id)');
         db.exec('COMMIT');
       } catch (e) {
-        db.exec('ROLLBACK');
+        try { db.exec('ROLLBACK'); } catch (_) {}
         console.error('Status migration failed:', e.message);
         throw e;
       }
