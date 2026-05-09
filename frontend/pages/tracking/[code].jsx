@@ -6,7 +6,8 @@ import { formatCurrency, formatDate } from '../../lib/utils';
 export async function getServerSideProps({ params }) {
   if (params.code === 'lookup') return { props: { lookup: true } };
   try {
-    const res = await fetch(`http://localhost:3001/api/tracking/${encodeURIComponent(params.code)}`);
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
+    const res = await fetch(`${backendUrl}/api/tracking/${encodeURIComponent(params.code)}`);
     if (!res.ok) return { props: { notFound: true } };
     const data = await res.json();
     return { props: { donation: data.donation, statusUpdates: data.status_updates } };

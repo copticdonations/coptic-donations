@@ -4,7 +4,8 @@ import { formatCurrency } from '../lib/utils';
 
 export async function getServerSideProps() {
   try {
-    const res = await fetch('http://localhost:3001/api/items');
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
+    const res = await fetch(`${backendUrl}/api/items`);
     const data = await res.json();
     return { props: { items: data.items || [] } };
   } catch {
