@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -22,13 +23,23 @@ app.use(cors({
 }));
 app.use(morgan('dev'));
 app.use(express.json());
+
+['items', 'installations', 'receipts'].forEach(dir => {
+  const p = path.join(__dirname, 'uploads', dir);
+  if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
+});
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+app.use('/api/auth', require('./routes/auth'));
 app.use('/api/items', require('./routes/items'));
 app.use('/api/donations', require('./routes/donations'));
 app.use('/api/tracking', require('./routes/tracking'));
 app.use('/api/donations', require('./routes/status'));
 app.use('/api/admin', require('./routes/admin'));
+app.use('/api/newsletter', require('./routes/newsletter'));
+app.use('/api/contact', require('./routes/contact'));
+app.use('/api/connections', require('./routes/connections'));
 
 app.use((err, req, res, next) => {
   console.error(err);

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { formatCurrency } from '../../lib/utils';
+import { formatCurrency, formatDate } from '../../lib/utils';
+import Lightbox from '../../components/ui/Lightbox';
 
 export async function getServerSideProps({ params }) {
   try {
@@ -20,28 +21,34 @@ export default function ItemPage({ item }) {
   const [form, setForm] = useState({
     donor_name: '',
     donor_email: '',
-    amount: item.suggested_amount,
+    donor_phone: '',
+    tax_receipt_requested: item.tax_receipt === 'yes' || item.tax_receipt === 'possible',
+    anonymous: false,
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState(null);
+  const [activeImg, setActiveImg] = useState(0);
+
+  const images = item.images && item.images.length > 0 ? item.images : (item.image_url ? [item.image_url] : []);
 
   function handleChange(e) {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value, type, checked } = e.target;
+    setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     if (!form.donor_name.trim()) return setError('Please enter your name.');
-    if (!form.amount || parseFloat(form.amount) <= 0) return setError('Please enter a valid donation amount.');
 
     sessionStorage.setItem('pendingDonation', JSON.stringify({
       item_id: item.id,
       item_title: item.title,
-      item_image_url: item.image_url,
+      item_image_url: images[0] || null,
       category: item.category,
+      tax_receipt: item.tax_receipt,
       ...form,
-      amount: parseFloat(form.amount),
     }));
 
     router.push('/checkout');
@@ -49,44 +56,93 @@ export default function ItemPage({ item }) {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
+      {lightboxSrc && (
+        <Lightbox src={lightboxSrc} alt={item.title} onClose={() => setLightboxSrc(null)} />
+      )}
+
       <Link href="/" className="text-gold hover:text-gold-dark text-sm font-semibold flex items-center gap-1 mb-6">
         <span>&#8592;</span> Back to all items
       </Link>
 
       <div className="grid md:grid-cols-2 gap-10">
         <div>
-          <div className="rounded-xl overflow-hidden shadow-lg aspect-video bg-sand-dark">
-            {item.image_url ? (
-              <img src={item.image_url} alt={item.title} className="w-full h-full object-cover" />
+          <div
+            className="rounded-xl overflow-hidden shadow-lg aspect-video bg-sand-dark cursor-zoom-in"
+            onClick={() => images[activeImg] && setLightboxSrc(images[activeImg])}
+          >
+            {images[activeImg] ? (
+              <img src={images[activeImg]} alt={item.title} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <svg className="w-20 h-20 text-gold opacity-40" fill="currentColor" viewBox="0 0 100 100">
-                  <rect x="42" y="10" width="16" height="80" rx="4" />
-                  <rect x="10" y="35" width="80" height="16" rx="4" />
-                  <circle cx="50" cy="43" r="12" fill="none" stroke="currentColor" strokeWidth="6" />
-                </svg>
+                <PlaceholderIcon />
               </div>
             )}
           </div>
 
-          {item.category && (
-            <span className="mt-3 inline-block bg-navy text-gold text-xs font-bold px-3 py-1 rounded">
-              {item.category}
-            </span>
+          {images.length > 1 && (
+            <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+              {images.map((src, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveImg(i)}
+                  className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
+                    activeImg === i ? 'border-gold' : 'border-transparent'
+                  }`}
+                >
+                  <img src={src} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
           )}
-          <h1 className="text-3xl font-bold text-navy mt-2">{item.title}</h1>
-          <p className="text-gray-600 mt-3 leading-relaxed">{item.description}</p>
+
+          <div className="mt-4 flex flex-wrap gap-2">
+            {item.category && (
+              <span className="bg-navy text-gold text-xs font-bold px-3 py-1 rounded">
+                {item.category}
+              </span>
+            )}
+            {item.service_benefiting && (
+              <span className="bg-gold-light text-navy text-xs font-semibold px-3 py-1 rounded border border-gold">
+                {item.service_benefiting}
+              </span>
+            )}
+          </div>
+
+          <h1 className="text-3xl font-bold text-navy mt-3">{item.title}</h1>
+          <p className="text-gray-600 mt-3 leading-relaxed">{item.purpose_impact || item.description}</p>
+
+          {item.need_by_date && (
+            <div className="mt-4 flex items-center gap-2 text-sm">
+              <span className="text-red-500 font-semibold">Needed by:</span>
+              <span className="text-navy font-bold">{formatDate(item.need_by_date)}</span>
+            </div>
+          )}
+
+          {item.link && (
+            <a href={item.link} target="_blank" rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-1 text-gold hover:text-gold-dark text-sm font-semibold">
+              View Reference &#8599;
+            </a>
+          )}
 
           <div className="mt-6 bg-gold-light rounded-xl p-4 border border-gold">
-            <p className="text-sm text-navy-dark font-semibold">Suggested Donation</p>
-            <p className="text-3xl font-bold text-navy">{formatCurrency(item.suggested_amount)}</p>
-            <p className="text-xs text-gray-600 mt-1">You may donate any amount you wish.</p>
+            <p className="text-sm text-navy-dark font-semibold">Estimated Cost</p>
+            <p className="text-3xl font-bold text-navy">{formatCurrency(item.cost || item.suggested_amount)}</p>
+            {item.tax_receipt === 'yes' && (
+              <p className="text-xs text-green-700 font-semibold mt-1">✓ Tax receipt available</p>
+            )}
+            {item.tax_receipt === 'possible' && (
+              <p className="text-xs text-gray-600 mt-1">Tax receipt may be available — ask us</p>
+            )}
           </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-2xl font-bold text-navy mb-1">Make a Donation</h2>
-          <p className="text-sm text-gray-500 mb-6">Fill in your details and we will take care of the rest.</p>
+          <h2 className="text-2xl font-bold text-navy mb-1">Commit to This Donation</h2>
+          <p className="text-sm text-gray-500 mb-6">
+            This site does not collect money. By committing, you agree to personally source and provide this item.
+            We will coordinate delivery with you.
+          </p>
 
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">
@@ -118,50 +174,70 @@ export default function ItemPage({ item }) {
                 onChange={handleChange}
                 placeholder="your@email.com"
               />
-              <p className="text-xs text-gray-400 mt-1">We will send your tracking code here if provided.</p>
+              <p className="text-xs text-gray-400 mt-1">
+                We will send your tracking code here. We do not send junk mail.
+              </p>
             </div>
 
             <div>
-              <label className="label">Donation Amount (USD) *</label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold">$</span>
-                <input
-                  className="input pl-7"
-                  type="number"
-                  name="amount"
-                  value={form.amount}
-                  onChange={handleChange}
-                  min="1"
-                  step="0.01"
-                  placeholder={item.suggested_amount}
-                  required
-                />
-              </div>
+              <label className="label">Phone Number (optional)</label>
+              <input
+                className="input"
+                type="tel"
+                name="donor_phone"
+                value={form.donor_phone}
+                onChange={handleChange}
+                placeholder="+1 (555) 000-0000"
+              />
             </div>
 
-            <div className="flex flex-wrap gap-2 mt-1">
-              {[25, 50, 100, 200, 500].map(amt => (
-                <button
-                  key={amt}
-                  type="button"
-                  onClick={() => setForm(prev => ({ ...prev, amount: amt }))}
-                  className={`text-sm px-3 py-1 rounded-full border font-semibold transition-colors ${
-                    parseFloat(form.amount) === amt
-                      ? 'bg-gold text-navy-dark border-gold'
-                      : 'border-gold text-navy hover:bg-gold hover:text-navy-dark'
-                  }`}
-                >
-                  ${amt}
-                </button>
-              ))}
-            </div>
+            {item.tax_receipt !== 'no' && (
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="tax_receipt_requested"
+                  checked={form.tax_receipt_requested}
+                  onChange={handleChange}
+                  className="mt-0.5 accent-gold"
+                />
+                <span className="text-sm text-navy">
+                  I would like a tax receipt for this donation
+                  {item.tax_receipt === 'possible' && (
+                    <span className="text-gray-400"> (if eligible)</span>
+                  )}
+                </span>
+              </label>
+            )}
+
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                name="anonymous"
+                checked={form.anonymous}
+                onChange={handleChange}
+                className="mt-0.5 accent-gold"
+              />
+              <span className="text-sm text-navy">
+                Keep my name anonymous on the public tracking page
+              </span>
+            </label>
 
             <button type="submit" disabled={submitting} className="btn-primary mt-2 w-full text-center">
-              {submitting ? 'Processing...' : 'Continue to Checkout →'}
+              {submitting ? 'Processing...' : 'Commit to This Donation →'}
             </button>
           </form>
         </div>
       </div>
     </div>
+  );
+}
+
+function PlaceholderIcon() {
+  return (
+    <svg className="w-20 h-20 text-gold opacity-40" fill="currentColor" viewBox="0 0 100 100">
+      <rect x="42" y="10" width="16" height="80" rx="4" />
+      <rect x="10" y="35" width="80" height="16" rx="4" />
+      <circle cx="50" cy="43" r="12" fill="none" stroke="currentColor" strokeWidth="6" />
+    </svg>
   );
 }

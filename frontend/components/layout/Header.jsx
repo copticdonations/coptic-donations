@@ -1,6 +1,14 @@
 import Link from 'next/link';
 import { useState } from 'react';
 
+const NAV_LINKS = [
+  { href: '/', label: 'Browse' },
+  { href: '/about', label: 'About' },
+  { href: '/how-it-works', label: 'How It Works' },
+  { href: '/get-connected', label: 'Get Connected' },
+  { href: '/tracking/lookup', label: 'Track' },
+];
+
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -16,9 +24,9 @@ export default function Header() {
         </Link>
 
         <nav className="hidden md:flex items-center gap-6">
-          <NavLink href="/">Browse Items</NavLink>
-          <NavLink href="/tracking/lookup">Track Donation</NavLink>
-          <NavLink href="/admin">Admin</NavLink>
+          {NAV_LINKS.map(({ href, label }) => (
+            <NavLink key={href} href={href}>{label}</NavLink>
+          ))}
         </nav>
 
         <button
@@ -37,9 +45,9 @@ export default function Header() {
 
       {mobileOpen && (
         <div className="md:hidden bg-navy-dark border-t border-navy-light px-4 py-3 flex flex-col gap-3">
-          <NavLink href="/" onClick={() => setMobileOpen(false)}>Browse Items</NavLink>
-          <NavLink href="/tracking/lookup" onClick={() => setMobileOpen(false)}>Track Donation</NavLink>
-          <NavLink href="/admin" onClick={() => setMobileOpen(false)}>Admin</NavLink>
+          {NAV_LINKS.map(({ href, label }) => (
+            <NavLink key={href} href={href} onClick={() => setMobileOpen(false)}>{label}</NavLink>
+          ))}
         </div>
       )}
     </header>

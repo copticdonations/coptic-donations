@@ -20,22 +20,23 @@ export default function CheckoutPage() {
     }
   }, [router]);
 
-  async function handleDonate() {
+  async function handleCommit() {
     setError('');
     setSubmitting(true);
     try {
       const result = await createDonation({
         item_id: pending.item_id,
         donor_name: pending.donor_name,
-        donor_email: pending.donor_email,
-        amount: pending.amount,
+        donor_email: pending.donor_email || undefined,
+        donor_phone: pending.donor_phone || undefined,
+        tax_receipt_requested: pending.tax_receipt_requested ? 1 : 0,
+        anonymous: pending.anonymous ? 1 : 0,
       });
       sessionStorage.removeItem('pendingDonation');
       sessionStorage.setItem('donationSuccess', JSON.stringify({
         tracking_code: result.tracking_code,
         donor_name: pending.donor_name,
         item_title: pending.item_title,
-        amount: pending.amount,
       }));
       router.push('/success');
     } catch (err) {
@@ -59,7 +60,7 @@ export default function CheckoutPage() {
         <span>&#8592;</span> Back to item
       </Link>
 
-      <h1 className="text-3xl font-bold text-navy mb-2">Review Your Donation</h1>
+      <h1 className="text-3xl font-bold text-navy mb-2">Review Your Commitment</h1>
       <p className="text-gray-500 mb-8">Please review the details below before confirming.</p>
 
       <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
@@ -79,20 +80,24 @@ export default function CheckoutPage() {
       </div>
 
       <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-        <h3 className="text-lg font-bold text-navy mb-4 border-b border-sand-dark pb-2">Donation Summary</h3>
+        <h3 className="text-lg font-bold text-navy mb-4 border-b border-sand-dark pb-2">Commitment Summary</h3>
         <dl className="flex flex-col gap-3">
-          <Row label="Donor Name" value={pending.donor_name} />
+          <Row label="Your Name" value={pending.donor_name} />
           {pending.donor_email && <Row label="Email" value={pending.donor_email} />}
+          {pending.donor_phone && <Row label="Phone" value={pending.donor_phone} />}
           <Row label="Item" value={pending.item_title} />
-          <Row
-            label="Donation Amount"
-            value={<span className="text-gold font-bold text-xl">{formatCurrency(pending.amount)}</span>}
-          />
+          {pending.tax_receipt_requested && (
+            <Row label="Tax Receipt" value={<span className="text-green-700 font-semibold">Requested</span>} />
+          )}
+          {pending.anonymous && (
+            <Row label="Anonymous" value={<span className="text-navy font-semibold">Yes</span>} />
+          )}
         </dl>
       </div>
 
       <div className="bg-gold-light border border-gold rounded-xl p-4 mb-6 text-sm text-navy-dark">
-        <strong>Note:</strong> This is a demo site. No real payment will be processed. Clicking "Donate Now" will record your donation and generate a tracking code.
+        <strong>Important:</strong> By confirming, you commit to personally sourcing and delivering this item.
+        This is not a payment. We will contact you to coordinate delivery.
       </div>
 
       {error && (
@@ -102,7 +107,7 @@ export default function CheckoutPage() {
       )}
 
       <button
-        onClick={handleDonate}
+        onClick={handleCommit}
         disabled={submitting}
         className="btn-primary w-full text-center text-lg py-4 flex items-center justify-center gap-3"
       >
@@ -112,7 +117,7 @@ export default function CheckoutPage() {
             Processing...
           </>
         ) : (
-          'Donate Now'
+          'Confirm Commitment'
         )}
       </button>
     </div>

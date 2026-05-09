@@ -1,9 +1,13 @@
 import { STATUS_ORDER, STATUS_LABELS, STATUS_ICONS, formatDate } from '../../lib/utils';
 
-export default function Timeline({ statusUpdates }) {
-  const completedStatuses = new Set(statusUpdates.map(u => u.status));
+export default function Timeline({ statusUpdates, showTaxReceipt = true }) {
+  const visibleStatuses = showTaxReceipt
+    ? STATUS_ORDER
+    : STATUS_ORDER.filter(s => s !== 'tax_receipt_sent');
+
+  const completedSet = new Set(statusUpdates.map(u => u.status));
   const latestStatus = statusUpdates.length > 0 ? statusUpdates[statusUpdates.length - 1].status : null;
-  const latestIndex = STATUS_ORDER.indexOf(latestStatus);
+  const latestIndex = visibleStatuses.indexOf(latestStatus);
 
   const getUpdateForStatus = (status) => statusUpdates.find(u => u.status === status);
 
@@ -13,13 +17,13 @@ export default function Timeline({ statusUpdates }) {
         <div className="absolute top-6 left-0 right-0 h-1 bg-gray-200 z-0">
           <div
             className="h-full bg-gold transition-all duration-500"
-            style={{ width: latestIndex >= 0 ? `${(latestIndex / (STATUS_ORDER.length - 1)) * 100}%` : '0%' }}
+            style={{ width: latestIndex >= 0 ? `${(latestIndex / (visibleStatuses.length - 1)) * 100}%` : '0%' }}
           />
         </div>
 
-        {STATUS_ORDER.map((status, index) => {
-          const completed = index <= latestIndex;
-          const isCurrent = index === latestIndex;
+        {visibleStatuses.map((status, index) => {
+          const completed = completedSet.has(status);
+          const isCurrent = status === latestStatus;
           const update = getUpdateForStatus(status);
 
           return (
@@ -45,9 +49,9 @@ export default function Timeline({ statusUpdates }) {
       </div>
 
       <div className="md:hidden flex flex-col gap-0">
-        {STATUS_ORDER.map((status, index) => {
-          const completed = index <= latestIndex;
-          const isCurrent = index === latestIndex;
+        {visibleStatuses.map((status, index) => {
+          const completed = completedSet.has(status);
+          const isCurrent = status === latestStatus;
           const update = getUpdateForStatus(status);
 
           return (
@@ -62,7 +66,7 @@ export default function Timeline({ statusUpdates }) {
                 }`}>
                   {completed ? STATUS_ICONS[status] : index + 1}
                 </div>
-                {index < STATUS_ORDER.length - 1 && (
+                {index < visibleStatuses.length - 1 && (
                   <div className={`w-0.5 flex-1 min-h-8 mt-1 ${completed ? 'bg-gold' : 'bg-gray-200'}`} />
                 )}
               </div>

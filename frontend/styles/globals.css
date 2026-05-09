@@ -33,3 +33,26 @@
     @apply block text-sm font-semibold text-navy mb-1;
   }
 }
+
+@media print {
+  header, footer, nav, button, .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+  }
+  .print-only {
+    display: block !important;
+  }
+  a {
+    color: black !important;
+    text-decoration: none;
+  }
+  .bg-navy {
+    background: #1a2e4a !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

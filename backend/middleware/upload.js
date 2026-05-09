@@ -21,9 +21,15 @@ const photoStorage = multer.diskStorage({
   filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`),
 });
 
+const receiptStorage = multer.diskStorage({
+  destination: path.join(__dirname, '../uploads/receipts'),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`),
+});
+
 const limits = { fileSize: 5 * 1024 * 1024 };
 
 const uploadItem = multer({ storage: itemStorage, fileFilter, limits });
 const uploadPhoto = multer({ storage: photoStorage, fileFilter, limits });
+const uploadReceipt = multer({ storage: receiptStorage, fileFilter, limits });
 
-module.exports = { uploadItem, uploadPhoto };
+module.exports = { uploadItem, uploadPhoto, uploadReceipt };

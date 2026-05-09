@@ -4,14 +4,21 @@ const db = require('../db/database');
 
 router.get('/:code', (req, res) => {
   const donation = db.prepare(`
-    SELECT d.id, d.tracking_code, d.donor_name, d.amount, d.installation_photo_url, d.created_at,
-           i.title as item_title, i.image_url as item_image_url
+    SELECT d.id, d.tracking_code, d.donor_name, d.donor_email, d.anonymous,
+           d.tax_receipt_requested, d.purchase_date, d.purchase_location, d.receipt_image_url,
+           d.installation_photo_url, d.created_at,
+           i.title as item_title, i.image_url as item_image_url, i.tax_receipt as item_tax_receipt
     FROM donations d
     JOIN items i ON i.id = d.item_id
     WHERE d.tracking_code = ?
   `).get([req.params.code]);
 
   if (!donation) return res.status(404).json({ error: 'Tracking code not found' });
+
+  const images = db.prepare(
+    'SELECT image_url FROM item_images WHERE item_id = (SELECT item_id FROM donations WHERE id = ?) ORDER BY sort_order ASC, id ASC LIMIT 1'
+  ).get([donation.id]);
+  if (images) donation.item_image_url = images.image_url;
 
   const status_updates = db.prepare(
     'SELECT id, status, message, timestamp FROM status_updates WHERE donation_id = ? ORDER BY timestamp ASC'

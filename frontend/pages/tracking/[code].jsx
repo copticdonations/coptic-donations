@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Timeline from '../../components/tracking/Timeline';
-import { formatCurrency, formatDate } from '../../lib/utils';
+import { formatDate } from '../../lib/utils';
+import { uploadDonorReceipt, subscribeNewsletter } from '../../lib/api';
 
 export async function getServerSideProps({ params }) {
   if (params.code === 'lookup') return { props: { lookup: true } };
@@ -21,14 +22,17 @@ export default function TrackingPage({ lookup, notFound, error, donation, status
   if (notFound) return <NotFoundPage />;
   if (error) return <ErrorPage />;
 
-  const currentStatus = statusUpdates.length > 0 ? statusUpdates[statusUpdates.length - 1].status : 'received';
-  const isInstalled = currentStatus === 'installed';
+  const currentStatus = statusUpdates.length > 0 ? statusUpdates[statusUpdates.length - 1].status : 'commitment_received';
+  const isCompleted = currentStatus === 'completed';
+  const showTaxReceiptStep = donation.tax_receipt_requested === 1 || donation.item_tax_receipt === 'yes';
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
-      <Link href="/" className="text-gold hover:text-gold-dark text-sm font-semibold flex items-center gap-1 mb-6">
-        <span>&#8592;</span> Back to home
-      </Link>
+      <div className="no-print">
+        <Link href="/" className="text-gold hover:text-gold-dark text-sm font-semibold flex items-center gap-1 mb-6">
+          <span>&#8592;</span> Back to home
+        </Link>
+      </div>
 
       <div className="bg-navy rounded-2xl p-6 md:p-8 mb-8 text-white">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -37,7 +41,7 @@ export default function TrackingPage({ lookup, notFound, error, donation, status
             <p className="text-2xl font-mono font-bold tracking-widest">{donation.tracking_code}</p>
           </div>
           <div className="text-right md:text-left">
-            <p className="text-sand opacity-70 text-sm">Donated on</p>
+            <p className="text-sand opacity-70 text-sm">Committed on</p>
             <p className="text-sand font-semibold">{formatDate(donation.created_at)}</p>
           </div>
         </div>
@@ -45,11 +49,16 @@ export default function TrackingPage({ lookup, notFound, error, donation, status
 
       <div className="grid md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow-md p-5 md:col-span-2">
-          <h2 className="text-lg font-bold text-navy mb-3">Donation Details</h2>
+          <h2 className="text-lg font-bold text-navy mb-3">Commitment Details</h2>
           <dl className="flex flex-col gap-2">
-            <Row label="Donor" value={donation.donor_name} />
+            <Row label="Committed by" value={donation.anonymous ? 'Anonymous' : donation.donor_name} />
             <Row label="Item" value={donation.item_title} />
-            <Row label="Amount" value={<span className="text-gold font-bold">{formatCurrency(donation.amount)}</span>} />
+            {donation.purchase_date && (
+              <Row label="Purchased" value={formatDate(donation.purchase_date)} />
+            )}
+            {donation.purchase_location && (
+              <Row label="From" value={donation.purchase_location} />
+            )}
           </dl>
         </div>
 
@@ -61,32 +70,162 @@ export default function TrackingPage({ lookup, notFound, error, donation, status
       </div>
 
       <div className="bg-white rounded-2xl shadow-md p-6 md:p-8 mb-8">
-        <h2 className="text-xl font-bold text-navy mb-6">Donation Journey</h2>
-        <Timeline statusUpdates={statusUpdates} />
+        <h2 className="text-xl font-bold text-navy mb-6">Commitment Journey</h2>
+        <Timeline statusUpdates={statusUpdates} showTaxReceipt={showTaxReceiptStep} />
       </div>
 
-      {isInstalled && donation.installation_photo_url && (
-        <div className="bg-white rounded-2xl shadow-md p-6 md:p-8 border-2 border-gold">
-          <h2 className="text-xl font-bold text-navy mb-2">🎉 Your Gift Has Been Installed!</h2>
+      {isCompleted && donation.installation_photo_url && (
+        <div className="bg-white rounded-2xl shadow-md p-6 md:p-8 border-2 border-gold mb-8">
+          <h2 className="text-xl font-bold text-navy mb-2">Your Gift Has Been Received!</h2>
           <p className="text-gray-500 text-sm mb-4">
             Thanks to your generosity, this item is now serving our community. May God bless you abundantly.
           </p>
           <div className="rounded-xl overflow-hidden">
             <img
               src={donation.installation_photo_url}
-              alt="Installed donation"
+              alt="Completed donation"
               className="w-full object-cover max-h-96"
             />
           </div>
         </div>
       )}
 
-      {isInstalled && !donation.installation_photo_url && (
-        <div className="bg-green-50 border-2 border-green-400 rounded-2xl p-6 text-center">
-          <p className="text-green-700 font-bold text-lg">Your gift has been installed!</p>
-          <p className="text-green-600 text-sm mt-1">An installation photo will be uploaded soon.</p>
+      {isCompleted && !donation.installation_photo_url && (
+        <div className="bg-green-50 border-2 border-green-400 rounded-2xl p-6 text-center mb-8">
+          <p className="text-green-700 font-bold text-lg">Your commitment has been fulfilled!</p>
+          <p className="text-green-600 text-sm mt-1">A photo will be uploaded soon. Thank you.</p>
         </div>
       )}
+
+      <ReceiptUpload donation={donation} />
+
+      <div className="flex justify-center gap-4 mt-6 no-print">
+        <button onClick={() => window.print()} className="btn-secondary text-sm px-4 py-2">
+          Print / Save PDF
+        </button>
+      </div>
+
+      {isCompleted && <NewsletterSignup />}
+    </div>
+  );
+}
+
+function ReceiptUpload({ donation }) {
+  const [file, setFile] = useState(null);
+  const [purchaseDate, setPurchaseDate] = useState('');
+  const [purchaseLocation, setPurchaseLocation] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [success, setSuccess] = useState('');
+  const [error, setError] = useState('');
+
+  if (donation.receipt_image_url) {
+    return (
+      <div className="bg-white rounded-2xl shadow-md p-6 mb-6 no-print">
+        <h3 className="font-bold text-navy mb-2">Receipt Uploaded</h3>
+        <p className="text-sm text-gray-500 mb-3">Thank you for uploading your receipt.</p>
+        <a href={donation.receipt_image_url} target="_blank" rel="noopener noreferrer"
+          className="text-gold hover:text-gold-dark text-sm font-semibold">
+          View Receipt &#8599;
+        </a>
+      </div>
+    );
+  }
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!file) return setError('Please select a receipt image.');
+    setUploading(true);
+    setError('');
+    try {
+      const fd = new FormData();
+      fd.append('receipt', file);
+      if (purchaseDate) fd.append('purchase_date', purchaseDate);
+      if (purchaseLocation) fd.append('purchase_location', purchaseLocation);
+      await uploadDonorReceipt(donation.id, fd);
+      setSuccess('Receipt uploaded successfully!');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-md p-6 mb-6 no-print">
+      <h3 className="font-bold text-navy mb-1">Upload Your Receipt</h3>
+      <p className="text-sm text-gray-500 mb-4">
+        Once you have purchased the item, upload your receipt so we can track it.
+      </p>
+      {success && <p className="text-green-600 text-sm mb-3 font-semibold">{success}</p>}
+      {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
+      {!success && (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label">Purchase Date</label>
+              <input type="date" className="input" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Store / Location</label>
+              <input type="text" className="input" placeholder="e.g. Amazon, Walmart" value={purchaseLocation} onChange={e => setPurchaseLocation(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <label className="label">Receipt Image</label>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={e => setFile(e.target.files[0])}
+              className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-gold-light file:text-navy file:font-semibold hover:file:bg-gold cursor-pointer"
+            />
+          </div>
+          <button type="submit" disabled={uploading} className="btn-secondary self-start text-sm px-4 py-2">
+            {uploading ? 'Uploading...' : 'Upload Receipt'}
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function NewsletterSignup() {
+  const [email, setEmail] = useState('');
+  const [done, setDone] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!email) return;
+    try {
+      await subscribeNewsletter({ email });
+      setDone(true);
+    } catch {}
+  }
+
+  if (done) {
+    return (
+      <div className="bg-gold-light border border-gold rounded-2xl p-6 text-center mt-8 no-print">
+        <p className="text-navy font-bold">You&apos;re subscribed! Thank you.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gold-light border border-gold rounded-2xl p-6 text-center mt-8 no-print">
+      <p className="text-navy font-bold text-lg mb-1">Stay Connected</p>
+      <p className="text-sm text-navy-dark mb-4">Subscribe to hear about new items that need your support.</p>
+      <form onSubmit={handleSubmit} className="flex gap-2 max-w-sm mx-auto">
+        <input
+          type="email"
+          className="input flex-1 text-sm"
+          placeholder="your@email.com"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          required
+        />
+        <button type="submit" className="btn-primary text-sm px-4 py-2 whitespace-nowrap">
+          Subscribe
+        </button>
+      </form>
     </div>
   );
 }
@@ -127,7 +266,7 @@ function LookupPage() {
   return (
     <div className="max-w-md mx-auto px-4 py-20 text-center">
       <div className="text-5xl mb-4">📦</div>
-      <h1 className="text-3xl font-bold text-navy mb-2">Track Your Donation</h1>
+      <h1 className="text-3xl font-bold text-navy mb-2">Track Your Commitment</h1>
       <p className="text-gray-500 mb-8">Enter your tracking code to see your donation&apos;s journey.</p>
       <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-md p-6">
         <input
@@ -139,11 +278,11 @@ function LookupPage() {
         />
         {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
         <button type="submit" disabled={loading} className="btn-primary w-full">
-          {loading ? 'Searching...' : 'Track Donation'}
+          {loading ? 'Searching...' : 'Track Commitment'}
         </button>
       </form>
       <Link href="/" className="mt-4 inline-block text-sm text-gold hover:text-gold-dark">
-        Or browse items to donate
+        Or browse items to commit
       </Link>
     </div>
   );
@@ -154,7 +293,7 @@ function NotFoundPage() {
     <div className="max-w-md mx-auto px-4 py-20 text-center">
       <p className="text-5xl mb-4">🔍</p>
       <h1 className="text-2xl font-bold text-navy mb-3">Tracking Code Not Found</h1>
-      <p className="text-gray-500 mb-6">We could not find a donation with that tracking code. Please double-check and try again.</p>
+      <p className="text-gray-500 mb-6">We could not find a commitment with that tracking code. Please double-check and try again.</p>
       <Link href="/tracking/lookup" className="btn-primary">Try Again</Link>
     </div>
   );
@@ -170,4 +309,3 @@ function ErrorPage() {
     </div>
   );
 }
-

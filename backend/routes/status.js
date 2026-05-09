@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
-const { uploadPhoto } = require('../middleware/upload');
+const { uploadPhoto, uploadReceipt } = require('../middleware/upload');
 
-const STATUS_ORDER = ['received', 'processing', 'shipped', 'delivered', 'installed'];
+const STATUS_ORDER = ['commitment_received', 'item_sent', 'delivered', 'tax_receipt_sent', 'completed'];
 
 router.post('/:id/status', (req, res) => {
   const { status, message } = req.body;
@@ -46,6 +46,23 @@ router.post('/:id/installation-photo', uploadPhoto.single('photo'), (req, res) =
   db.prepare('UPDATE donations SET installation_photo_url = ? WHERE id = ?').run([photo_url, donationId]);
 
   res.json({ photo_url });
+});
+
+router.post('/:id/receipt', uploadReceipt.single('receipt'), (req, res) => {
+  const donationId = parseInt(req.params.id);
+  if (!req.file) return res.status(400).json({ error: 'No receipt uploaded' });
+
+  const donation = db.prepare('SELECT id FROM donations WHERE id = ?').get([donationId]);
+  if (!donation) return res.status(404).json({ error: 'Donation not found' });
+
+  const receipt_url = `/uploads/receipts/${req.file.filename}`;
+  const { purchase_date, purchase_location } = req.body;
+
+  db.prepare(
+    'UPDATE donations SET receipt_image_url = ?, purchase_date = COALESCE(?, purchase_date), purchase_location = COALESCE(?, purchase_location) WHERE id = ?'
+  ).run([receipt_url, purchase_date || null, purchase_location || null, donationId]);
+
+  res.json({ receipt_url });
 });
 
 module.exports = router;
