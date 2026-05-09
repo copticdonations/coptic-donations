@@ -1,0 +1,13 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm install"
+
+[deploy]
+startCommand = "node server.js"
+healthcheckPath = "/api/items"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+
+[[deploy.environmentVariables]]
+name = "NODE_ENV"
+value = "production"
