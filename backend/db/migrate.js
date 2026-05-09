@@ -51,6 +51,7 @@ module.exports = function runMigrations(db) {
     const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='status_updates'").get([]);
     const isOldSchema = tableInfo && tableInfo.sql && tableInfo.sql.includes("'received'");
     if (isOldSchema) {
+      const rows = db.prepare('SELECT * FROM status_updates').all([]);
       db.exec('BEGIN');
       try {
         db.exec(`CREATE TABLE status_updates_v2 (
@@ -60,7 +61,6 @@ module.exports = function runMigrations(db) {
           message TEXT,
           timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )`);
-        const rows = db.prepare('SELECT * FROM status_updates').all([]);
         const ins = db.prepare('INSERT INTO status_updates_v2 (id, donation_id, status, message, timestamp) VALUES (?, ?, ?, ?, ?)');
         for (const r of rows) {
           const newStatus = STATUS_MAP[r.status] || 'commitment_received';
