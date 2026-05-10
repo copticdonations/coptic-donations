@@ -33,12 +33,29 @@ export default function ItemPage({ item }) {
   const [selectedQty, setSelectedQty] = useState(1);
 
   const unitCost = item.cost || item.suggested_amount || 0;
+  const unitCostMax = (item.cost_max && item.cost_max > unitCost) ? item.cost_max : null;
+
+  // Returns "$X" or "$X — $Y" when a cost range exists
+  function subtotalRange(qty) {
+    const min = formatCurrency(unitCost * qty);
+    if (!unitCostMax) return min;
+    return `${min} — ${formatCurrency(unitCostMax * qty)}`;
+  }
+
   const selectedPhasesList = phases
     .map((ph, i) => ({ ...ph, index: i, ...phaseSelections[i] }))
     .filter(ph => ph.checked && ph.qty > 0);
-  const grandTotal = phases.length > 0
+  const grandTotalMin = phases.length > 0
     ? selectedPhasesList.reduce((s, ph) => s + unitCost * ph.qty, 0)
     : unitCost * selectedQty;
+  const grandTotalMax = unitCostMax
+    ? (phases.length > 0
+        ? selectedPhasesList.reduce((s, ph) => s + unitCostMax * ph.qty, 0)
+        : unitCostMax * selectedQty)
+    : null;
+  const grandTotalDisplay = grandTotalMax
+    ? `${formatCurrency(grandTotalMin)} — ${formatCurrency(grandTotalMax)}`
+    : formatCurrency(grandTotalMin);
   const [form, setForm] = useState({
     donor_name: '',
     donor_email: '',
@@ -76,9 +93,10 @@ export default function ItemPage({ item }) {
             subtotal: unitCost * ph.qty,
           })),
           total_qty: selectedPhasesList.reduce((s, ph) => s + ph.qty, 0),
-          total_amount: grandTotal,
+          total_amount: grandTotalMin,
+          total_amount_max: grandTotalMax,
         }
-      : { selected_qty: selectedQty, total_amount: grandTotal };
+      : { selected_qty: selectedQty, total_amount: grandTotalMin, total_amount_max: grandTotalMax };
 
     sessionStorage.setItem('pendingDonation', JSON.stringify({
       item_id: item.id,
@@ -223,7 +241,7 @@ export default function ItemPage({ item }) {
                   <label key={n} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${selectedQty === n ? 'border-gold bg-gold-light' : 'border-sand-dark bg-white'}`}>
                     <input type="radio" name="qty" checked={selectedQty === n} onChange={() => setSelectedQty(n)} className="accent-gold" />
                     <span className="font-semibold text-navy text-sm">{n} unit{n > 1 ? 's' : ''}</span>
-                    {unitCost > 0 && <span className="text-xs text-gray-500 ml-auto">{formatCurrency(unitCost * n)}</span>}
+                    {unitCost > 0 && <span className="text-xs text-gray-500 ml-auto">{subtotalRange(n)}</span>}
                   </label>
                 ))}
               </div>
@@ -238,7 +256,7 @@ export default function ItemPage({ item }) {
               <div className="flex flex-col gap-3">
                 {phases.map((phase, i) => {
                   const sel = phaseSelections[i] || { checked: false, qty: 1 };
-                  const phSubtotal = unitCost * sel.qty;
+                  const phSubtotal = subtotalRange(sel.qty);
                   return (
                     <div key={i} className={`rounded-xl border-2 p-4 transition-colors ${sel.checked ? 'border-gold bg-gold-light' : 'border-sand-dark bg-white'}`}>
                       <label className="flex items-start gap-3 cursor-pointer">
@@ -263,7 +281,7 @@ export default function ItemPage({ item }) {
                               className="w-7 h-7 rounded-full bg-navy text-gold font-bold flex items-center justify-center">+</button>
                           </div>
                           {unitCost > 0 && (
-                            <span className="text-sm font-bold text-navy ml-2">{formatCurrency(phSubtotal)}</span>
+                            <span className="text-sm font-bold text-navy ml-2">{phSubtotal}</span>
                           )}
                         </div>
                       )}
@@ -271,12 +289,12 @@ export default function ItemPage({ item }) {
                   );
                 })}
               </div>
-              {grandTotal > 0 && selectedPhasesList.length > 0 && (
+              {grandTotalMin > 0 && selectedPhasesList.length > 0 && (
                 <div className="mt-3 flex justify-between items-center bg-navy rounded-xl px-4 py-3">
                   <span className="text-sand text-sm font-semibold">
                     Total: {selectedPhasesList.reduce((s, ph) => s + ph.qty, 0)} unit{selectedPhasesList.reduce((s, ph) => s + ph.qty, 0) !== 1 ? 's' : ''}
                   </span>
-                  <span className="text-gold font-bold text-lg">{formatCurrency(grandTotal)}</span>
+                  <span className="text-gold font-bold text-lg">{grandTotalDisplay}</span>
                 </div>
               )}
             </div>
