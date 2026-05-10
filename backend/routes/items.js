@@ -197,8 +197,20 @@ router.delete('/:id/phases/:phaseId', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
-  const result = db.prepare('DELETE FROM items WHERE id = ?').run([req.params.id]);
-  if (result.changes === 0) return res.status(404).json({ error: 'Item not found' });
+  const item = db.prepare('SELECT id FROM items WHERE id = ?').get([req.params.id]);
+  if (!item) return res.status(404).json({ error: 'Item not found' });
+
+  // Nullify nullable item_id references in connections
+  try { db.prepare('UPDATE connections SET item_id = NULL WHERE item_id = ?').run([req.params.id]); } catch (_) {}
+
+  // If donations exist, archive instead of hard delete (preserves commitment history)
+  const donationCount = db.prepare('SELECT COUNT(*) as n FROM donations WHERE item_id = ?').get([req.params.id]).n;
+  if (donationCount > 0) {
+    db.prepare("UPDATE items SET item_status = 'archived' WHERE id = ?").run([req.params.id]);
+    return res.json({ archived: true, message: `Item has ${donationCount} commitment(s) and has been archived instead of deleted.` });
+  }
+
+  db.prepare('DELETE FROM items WHERE id = ?').run([req.params.id]);
   res.json({ message: 'Item deleted' });
 });
 

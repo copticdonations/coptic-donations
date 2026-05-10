@@ -178,8 +178,15 @@ function ItemsTab() {
 
   async function handleDelete(id) {
     if (!confirm('Delete this item? This cannot be undone.')) return;
-    await deleteItem(id);
-    loadItems();
+    try {
+      const result = await deleteItem(id);
+      if (result.archived) {
+        alert(result.message);
+      }
+      loadItems();
+    } catch (err) {
+      alert('Delete failed: ' + err.message);
+    }
   }
 
   const f = (k) => e => setForm(p => ({ ...p, [k]: e.target.value }));
