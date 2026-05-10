@@ -331,10 +331,11 @@ function ItemsTab() {
             </select>
           </div>
           {(form.payment_method === 'other' || form.payment_method === 'direct_vendor' || form.payment_method === 'church_fund') && (
-          <div>
-            <label className="label">Payment Instructions <span className="text-gray-400 font-normal">(shown to donor)</span></label>
-            <textarea className="input resize-none" rows={2} value={form.payment_instructions} onChange={f('payment_instructions')} placeholder="e.g. Send via Venmo to @username, note 'Candles for St. Mark'" />
-          </div>
+            <div>
+              <label className="label">Payment Instructions <span className="text-gray-400 font-normal">(shown to donor)</span></label>
+              <textarea className="input resize-none" rows={2} value={form.payment_instructions} onChange={f('payment_instructions')} placeholder="e.g. Send via Venmo to @username, note 'Candles for St. Mark'" />
+            </div>
+          )}
           <div>
             <label className="label">Item Images <span className="text-gray-400 font-normal">(select multiple)</span></label>
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handleFiles}
