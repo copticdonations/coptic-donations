@@ -131,11 +131,12 @@ module.exports = function generateCommitmentPdf(data) {
       'Track your commitment online using your tracking code above.',
     ];
     steps.forEach((step, i) => {
+      const stepY = y;
       doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(10)
-        .text(`${i + 1}.`, margin + 4, y, { continued: true, width: 20 });
+        .text(`${i + 1}.`, margin + 4, stepY, { width: 18, lineBreak: false });
       doc.fillColor('#333333').font('Helvetica').fontSize(10)
-        .text(` ${step}`, { width: contentW - 24 });
-      y = doc.y + 4;
+        .text(step, margin + 22, stepY, { width: contentW - 26 });
+      y = doc.y + 6;
     });
 
     // ── Footer ────────────────────────────────────────────────────
