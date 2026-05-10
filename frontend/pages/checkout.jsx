@@ -96,9 +96,8 @@ export default function CheckoutPage() {
         </dl>
       </div>
 
-      <div className="bg-gold-light border border-gold rounded-xl p-4 mb-4 text-sm text-navy-dark">
-        <strong>Important:</strong> By confirming, you commit to personally sourcing and providing this item.
-        This is not a payment. We will contact you to coordinate.
+      <div className="bg-gold-light border border-gold rounded-xl p-4 mb-4 text-sm text-navy-dark leading-relaxed">
+        By confirming, you are committing to donate this item. Coptic Donations will reach out with sourcing details and next steps as soon as the item is available — please be ready to complete your donation within 48 hours of being contacted, or as soon as possible thereafter.
       </div>
 
       <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-sm text-red-800">

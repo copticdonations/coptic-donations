@@ -15,16 +15,12 @@ const FAQS = [
     a: 'Needs are reviewed and verified as much as possible before being posted. We do our best to confirm the need with the relevant church, monastery, or ministry.',
   },
   {
-    q: 'Can I donate items instead of money?',
-    a: 'Yes, in some cases. Check the specific post for details on what is accepted.',
-  },
-  {
     q: 'Can I suggest a need?',
     a: 'Yes! Use the Get Connected page to submit a request for review.',
   },
   {
     q: 'Can I give a small amount?',
-    a: 'Yes. Some posts accept partial contributions from multiple people.',
+    a: 'Each item has a set per-unit cost, and each donor covers the full cost of at least one unit. For example, if a church needs 15 candles, you can commit to donating just one — but you would cover the full cost of that one candle. Similarly, if a post lists 48 surge protectors at $65 each, you would need to be able to cover the full $65 per unit you commit to. This is because Coptic Donations does not collect or pool money — each donor gives directly, so each commitment must be a complete unit.',
   },
   {
     q: 'What payment methods are accepted?',

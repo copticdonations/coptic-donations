@@ -32,10 +32,10 @@ export default function AboutPage() {
         <h2 className="text-2xl font-bold text-navy mb-4">How It Is Different</h2>
         <div className="grid sm:grid-cols-2 gap-6">
           {[
-            { icon: '🎯', title: 'Targeted Giving', desc: 'Every commitment funds a specific, named item — not a general fund.' },
-            { icon: '🔍', title: 'Full Transparency', desc: 'Track your commitment from purchase to installation with real-time updates.' },
-            { icon: '🤝', title: 'Direct Connection', desc: 'You source and provide the item yourself, with our guidance.' },
-            { icon: '🧾', title: 'Tax Receipts', desc: 'Tax receipts are available for eligible donations where applicable.' },
+            { icon: '🎯', title: 'Targeted Giving', desc: 'Every commitment funds a specific, named item or need — so you know exactly where your generosity goes.' },
+            { icon: '🤝', title: 'Direct Connection', desc: 'You pay for the item directly — for example, purchasing through Amazon and shipping it to the recipient, or paying a seller directly with our guidance.' },
+            { icon: '💡', title: 'Community Savings', desc: 'Through community connections, items can often be found at a fraction of retail cost — a church receives what it needs, and a community member receives the blessing of giving.' },
+            { icon: '🧾', title: 'Tax Receipts', desc: 'Tax receipts are available for eligible donations where applicable. Each post states this clearly upfront.' },
           ].map(({ icon, title, desc }) => (
             <div key={title} className="flex gap-3">
               <span className="text-2xl">{icon}</span>
