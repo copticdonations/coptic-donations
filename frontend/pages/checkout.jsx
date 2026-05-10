@@ -118,6 +118,7 @@ export default function CheckoutPage() {
             onChange={e => setReceiptFile(e.target.files[0] || null)}
             className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-gold-light file:text-navy file:font-semibold hover:file:bg-gold cursor-pointer"
           />
+          <p className="text-xs text-gray-400 mt-1">Accepted: JPEG, PNG, WebP, or PDF — max 5 MB</p>
           {receiptFile && (
             <p className="text-xs text-green-700 font-semibold mt-2">✓ {receiptFile.name} selected</p>
           )}

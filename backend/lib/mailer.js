@@ -59,7 +59,7 @@ async function sendViaResend(payload) {
   await resend.emails.send(msg);
 }
 
-async function sendMail({ to, subject, text, html, attachments }) {
+async function sendMail({ to, cc, subject, text, html, attachments }) {
   to = to || 'copticdonations7@gmail.com';
   const useGoogleScript = !!process.env.GOOGLE_SCRIPT_URL;
   const useResend = !!process.env.RESEND_API_KEY;
@@ -71,6 +71,7 @@ async function sendMail({ to, subject, text, html, attachments }) {
 
   if (useGoogleScript) {
     const payload = { to, subject, text: text || '', html };
+    if (cc) payload.cc = cc;
     const norm = normaliseAttachments(attachments);
     if (norm && norm.length) payload.attachments = norm;
     await sendViaGoogleScript(payload);

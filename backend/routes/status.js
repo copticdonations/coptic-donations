@@ -86,18 +86,17 @@ router.post('/:id/receipt', uploadReceipt.single('receipt'), (req, res) => {
       <p>The receipt is attached to this email.</p>
     `;
 
-    const recipients = ['copticdonations7@gmail.com'];
-    if (donation.treasurer_email) recipients.push(donation.treasurer_email);
+    const primaryTo = donation.treasurer_email || 'copticdonations7@gmail.com';
+    const cc = donation.treasurer_email ? 'copticdonations7@gmail.com' : undefined;
 
-    for (const to of recipients) {
-      sendMail({
-        to,
-        subject: `Receipt Uploaded: ${donation.item_title} — ${donation.tracking_code}`,
-        text: `Receipt uploaded for ${donation.item_title} by ${donation.donor_name}.`,
-        html,
-        attachments: [attachment],
-      }).catch(err => console.error(`Receipt email to ${to} failed:`, err.message));
-    }
+    sendMail({
+      to: primaryTo,
+      cc,
+      subject: `Receipt Uploaded: ${donation.item_title} — ${donation.tracking_code}`,
+      text: `Receipt uploaded for ${donation.item_title} by ${donation.donor_name}.`,
+      html,
+      attachments: [attachment],
+    }).catch(err => console.error('Receipt email failed:', err.message));
   } catch (err) {
     console.error('Receipt email prep failed:', err.message);
   }

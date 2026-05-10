@@ -2,13 +2,22 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_RECEIPT_TYPES = [...ALLOWED_IMAGE_TYPES, 'application/pdf'];
 
 function fileFilter(req, file, cb) {
-  if (ALLOWED_TYPES.includes(file.mimetype)) {
+  if (ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
     cb(new Error('Only JPEG, PNG, and WebP images are allowed.'), false);
+  }
+}
+
+function receiptFileFilter(req, file, cb) {
+  if (ALLOWED_RECEIPT_TYPES.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Accepted formats: JPEG, PNG, WebP, or PDF.'), false);
   }
 }
 
@@ -27,8 +36,8 @@ function makeStorage(subdir) {
 
 const limits = { fileSize: 5 * 1024 * 1024 };
 
-const uploadItem    = multer({ storage: makeStorage('items'),         fileFilter, limits });
-const uploadPhoto   = multer({ storage: makeStorage('installations'), fileFilter, limits });
-const uploadReceipt = multer({ storage: makeStorage('receipts'),      fileFilter, limits });
+const uploadItem    = multer({ storage: makeStorage('items'),         fileFilter,        limits });
+const uploadPhoto   = multer({ storage: makeStorage('installations'), fileFilter,        limits });
+const uploadReceipt = multer({ storage: makeStorage('receipts'),      receiptFileFilter, limits });
 
 module.exports = { uploadItem, uploadPhoto, uploadReceipt, baseUploadPath };
