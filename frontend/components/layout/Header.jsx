@@ -10,17 +10,25 @@ const NAV_LINKS = [
   { href: '/tracking/lookup', label: 'Track' },
 ];
 
+const VERSE = '“Bring all the tithes into the storehouse, That there may be food in My house, And try Me now in this,” Says the Lord of hosts, “If I will not open for you the windows of heaven And pour out for you such blessing That there will not be room enough to receive it.” — Malachi 3:10';
+
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <header className="bg-navy shadow-lg sticky top-0 z-50">
+      {/* Verse strip */}
+      <div className="border-b border-navy-light px-4 py-2 text-center">
+        <p className="text-sand text-xs opacity-70 italic leading-relaxed max-w-4xl mx-auto">
+          {VERSE}
+        </p>
+      </div>
+
+      {/* Main nav */}
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3 group">
-          <img src="/logo.png" alt="Coptic Donations" className="w-10 h-10 object-contain" />
-          <div>
-            <div className="text-gold font-serif text-lg font-bold leading-tight">Coptic Donations</div>
-            <div className="text-sand text-xs opacity-75">Malachi 3:10</div>
+        <Link href="/" className="group">
+          <div className="text-gold font-serif text-lg font-bold leading-tight group-hover:text-gold-light transition-colors">
+            Coptic Donations
           </div>
         </Link>
 
