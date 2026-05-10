@@ -1,4 +1,11 @@
 import { useState } from 'react';
+
+const PAYMENT_LABELS = {
+  direct_vendor: 'Direct to Vendor — Pay the seller directly via Venmo, Zelle, PayPal, Cash App, or Apple Pay',
+  online_purchase: 'Online Purchase — Buy directly through Amazon, eBay, etc. and ship to the provided address',
+  church_fund: 'Church General Fund — Donate to the church\'s general fund with a comment specifying the item',
+  other: 'See payment instructions below',
+};
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { formatCurrency, formatDate } from '../../lib/utils';
@@ -19,8 +26,19 @@ export async function getServerSideProps({ params }) {
 export default function ItemPage({ item }) {
   const router = useRouter();
   const phases = item.phases && item.phases.length > 0 ? item.phases : [];
-  const [selectedPhase, setSelectedPhase] = useState(0);
+  // phaseSelections: { [phaseIndex]: { checked: bool, qty: number } }
+  const [phaseSelections, setPhaseSelections] = useState(
+    Object.fromEntries(phases.map((_, i) => [i, { checked: false, qty: 1 }]))
+  );
   const [selectedQty, setSelectedQty] = useState(1);
+
+  const unitCost = item.cost || item.suggested_amount || 0;
+  const selectedPhasesList = phases
+    .map((ph, i) => ({ ...ph, index: i, ...phaseSelections[i] }))
+    .filter(ph => ph.checked && ph.qty > 0);
+  const grandTotal = phases.length > 0
+    ? selectedPhasesList.reduce((s, ph) => s + unitCost * ph.qty, 0)
+    : unitCost * selectedQty;
   const [form, setForm] = useState({
     donor_name: '',
     donor_email: '',
@@ -46,22 +64,35 @@ export default function ItemPage({ item }) {
     if (!form.donor_name.trim()) return setError('Please enter your name.');
     if (!form.donor_email.trim()) return setError('Please enter your email address.');
     if (!form.donor_phone.trim()) return setError('Please enter your phone number.');
+    if (phases.length > 0 && selectedPhasesList.length === 0) return setError('Please select at least one phase.');
 
-    const needByDate = phases.length > 0
-      ? phases[selectedPhase]?.target_date
-      : item.need_by_date;
+    const commitment_details = phases.length > 0
+      ? {
+          selected_phases: selectedPhasesList.map(ph => ({
+            phase_label: ph.phase_label || `Phase ${ph.index + 1}`,
+            quantity: ph.qty,
+            target_date: ph.target_date,
+            unit_cost: unitCost,
+            subtotal: unitCost * ph.qty,
+          })),
+          total_qty: selectedPhasesList.reduce((s, ph) => s + ph.qty, 0),
+          total_amount: grandTotal,
+        }
+      : { selected_qty: selectedQty, total_amount: grandTotal };
+
     sessionStorage.setItem('pendingDonation', JSON.stringify({
       item_id: item.id,
       item_title: item.title,
       item_image_url: images[0] || null,
       category: item.category,
       tax_receipt: item.tax_receipt,
-      need_by_date: needByDate || null,
-      phase_label: phases.length > 0 ? (phases[selectedPhase]?.phase_label || `Phase ${selectedPhase + 1}`) : null,
-      phase_quantity: phases.length > 0 ? (phases[selectedPhase]?.quantity || 1) : null,
-      selected_qty: phases.length === 0 && (item.quantity_needed || 1) > 1 ? selectedQty : null,
-      unit_cost: item.cost || item.suggested_amount || 0,
+      payment_method: item.payment_method || null,
+      payment_instructions: item.payment_instructions || null,
+      need_by_date: phases.length === 0 ? (item.need_by_date || null) : null,
+      unit_cost: unitCost,
       cost_max: item.cost_max || null,
+      item_link: item.link || null,
+      commitment_details,
       ...form,
     }));
 
@@ -172,48 +203,82 @@ export default function ItemPage({ item }) {
             )}
           </div>
 
+          {/* Payment method */}
+          {item.payment_method && (
+            <div className="mt-4 bg-sand rounded-xl p-4 border-l-4 border-gold">
+              <p className="text-xs font-bold text-navy uppercase tracking-wide mb-1">How to Give</p>
+              <p className="text-sm font-semibold text-navy">{PAYMENT_LABELS[item.payment_method] || item.payment_method}</p>
+              {item.payment_instructions && (
+                <p className="text-sm text-gray-600 mt-1">{item.payment_instructions}</p>
+              )}
+            </div>
+          )}
+
+          {/* No-phase quantity selector */}
           {phases.length === 0 && (item.quantity_needed || 1) > 1 && (
             <div className="mt-4">
               <p className="text-sm font-semibold text-navy mb-2">How many units would you like to donate?</p>
               <div className="flex flex-col gap-2">
-                {Array.from({ length: item.quantity_needed }, (_, i) => i + 1).map(n => {
-                  const subtotal = (item.cost || 0) * n;
-                  return (
-                    <label key={n} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${selectedQty === n ? 'border-gold bg-gold-light' : 'border-sand-dark bg-white'}`}>
-                      <input type="radio" name="qty" checked={selectedQty === n} onChange={() => setSelectedQty(n)} className="accent-gold" />
-                      <span className="font-semibold text-navy text-sm">{n} unit{n > 1 ? 's' : ''}</span>
-                      {subtotal > 0 && (
-                        <span className="text-xs text-gray-500 ml-auto">{formatCurrency(subtotal)}</span>
-                      )}
-                    </label>
-                  );
-                })}
+                {Array.from({ length: item.quantity_needed }, (_, i) => i + 1).map(n => (
+                  <label key={n} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${selectedQty === n ? 'border-gold bg-gold-light' : 'border-sand-dark bg-white'}`}>
+                    <input type="radio" name="qty" checked={selectedQty === n} onChange={() => setSelectedQty(n)} className="accent-gold" />
+                    <span className="font-semibold text-navy text-sm">{n} unit{n > 1 ? 's' : ''}</span>
+                    {unitCost > 0 && <span className="text-xs text-gray-500 ml-auto">{formatCurrency(unitCost * n)}</span>}
+                  </label>
+                ))}
               </div>
             </div>
           )}
 
+          {/* Multi-phase selector */}
           {phases.length > 0 && (
             <div className="mt-4">
-              <p className="text-sm font-semibold text-navy mb-2">Select a phase to commit to:</p>
-              <div className="flex flex-col gap-2">
+              <p className="text-sm font-semibold text-navy mb-1">Select phases to commit to:</p>
+              <p className="text-xs text-gray-400 mb-3">You can select multiple phases. Choose how many units per phase.</p>
+              <div className="flex flex-col gap-3">
                 {phases.map((phase, i) => {
-                  const unitCost = item.cost || 0;
-                  const subtotal = unitCost * (phase.quantity || 1);
+                  const sel = phaseSelections[i] || { checked: false, qty: 1 };
+                  const phSubtotal = unitCost * sel.qty;
                   return (
-                    <label key={i} className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${selectedPhase === i ? 'border-gold bg-gold-light' : 'border-sand-dark bg-white'}`}>
-                      <input type="radio" name="phase" checked={selectedPhase === i} onChange={() => setSelectedPhase(i)} className="mt-0.5 accent-gold" />
-                      <div className="flex-1">
-                        <p className="font-semibold text-navy text-sm">{phase.phase_label || `Phase ${i + 1}`}</p>
-                        <p className="text-xs text-gray-500">
-                          Qty: {phase.quantity}
-                          {phase.target_date && ` · Needed by ${formatDate(phase.target_date)}`}
-                          {unitCost > 0 && ` · Subtotal: ${formatCurrency(subtotal)}`}
-                        </p>
-                      </div>
-                    </label>
+                    <div key={i} className={`rounded-xl border-2 p-4 transition-colors ${sel.checked ? 'border-gold bg-gold-light' : 'border-sand-dark bg-white'}`}>
+                      <label className="flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" checked={sel.checked}
+                          onChange={e => setPhaseSelections(ps => ({ ...ps, [i]: { ...ps[i], checked: e.target.checked } }))}
+                          className="mt-0.5 accent-gold" />
+                        <div className="flex-1">
+                          <p className="font-semibold text-navy text-sm">{phase.phase_label || `Phase ${i + 1}`}</p>
+                          {phase.target_date && <p className="text-xs text-gray-500">Needed by {formatDate(phase.target_date)}</p>}
+                          {phase.phase_notes && <p className="text-xs text-gray-400 mt-0.5 italic">{phase.phase_notes}</p>}
+                          <p className="text-xs text-gray-400">Up to {phase.quantity} unit{phase.quantity !== 1 ? 's' : ''} available</p>
+                        </div>
+                      </label>
+                      {sel.checked && (
+                        <div className="mt-3 flex items-center gap-3">
+                          <label className="text-xs text-gray-500">How many units?</label>
+                          <div className="flex items-center gap-2 ml-auto">
+                            <button type="button" onClick={() => setPhaseSelections(ps => ({ ...ps, [i]: { ...ps[i], qty: Math.max(1, ps[i].qty - 1) } }))}
+                              className="w-7 h-7 rounded-full bg-navy text-gold font-bold flex items-center justify-center">−</button>
+                            <span className="font-bold text-navy w-6 text-center">{sel.qty}</span>
+                            <button type="button" onClick={() => setPhaseSelections(ps => ({ ...ps, [i]: { ...ps[i], qty: Math.min(phase.quantity, ps[i].qty + 1) } }))}
+                              className="w-7 h-7 rounded-full bg-navy text-gold font-bold flex items-center justify-center">+</button>
+                          </div>
+                          {unitCost > 0 && (
+                            <span className="text-sm font-bold text-navy ml-2">{formatCurrency(phSubtotal)}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </div>
+              {grandTotal > 0 && selectedPhasesList.length > 0 && (
+                <div className="mt-3 flex justify-between items-center bg-navy rounded-xl px-4 py-3">
+                  <span className="text-sand text-sm font-semibold">
+                    Total: {selectedPhasesList.reduce((s, ph) => s + ph.qty, 0)} unit{selectedPhasesList.reduce((s, ph) => s + ph.qty, 0) !== 1 ? 's' : ''}
+                  </span>
+                  <span className="text-gold font-bold text-lg">{formatCurrency(grandTotal)}</span>
+                </div>
+              )}
             </div>
           )}
         </div>

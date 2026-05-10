@@ -27,10 +27,14 @@ try {
 // Always ensure required columns exist — runs every startup, no-op if already there.
 // This bypasses migration tracking so a previously failed ALTER TABLE always gets retried.
 const REQUIRED_COLUMNS = [
-  ['items',      'cost_max',            'REAL'],
-  ['items',      'treasurer_email',     'TEXT'],
-  ['donations',  'receipt_uploaded_at', 'TEXT'],
-  ['connections','notes',               'TEXT'],
+  ['items',       'cost_max',             'REAL'],
+  ['items',       'treasurer_email',      'TEXT'],
+  ['items',       'payment_method',       'TEXT'],
+  ['items',       'payment_instructions', 'TEXT'],
+  ['item_phases', 'phase_notes',          'TEXT'],
+  ['donations',   'receipt_uploaded_at',  'TEXT'],
+  ['donations',   'commitment_details',   'TEXT'],
+  ['connections', 'notes',                'TEXT'],
 ];
 for (const [table, col, def] of REQUIRED_COLUMNS) {
   const exists = db.prepare(`PRAGMA table_info(${table})`).all([]).some(c => c.name === col);

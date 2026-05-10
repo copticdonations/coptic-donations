@@ -54,6 +54,10 @@ export async function createDonation(body) {
   }));
 }
 
+export async function getItemById(id) {
+  return handleResponse(await fetch(`/api/items/${id}`));
+}
+
 export async function getDonationById(id) {
   return handleResponse(await fetch(`/api/donations/${id}`));
 }

@@ -45,7 +45,7 @@ router.get('/:id', (req, res) => {
   item.images = images.map(i => i.image_url);
   item.primary_image = item.images[0] || item.image_url || null;
 
-  const phases = db.prepare('SELECT phase_label, quantity, target_date FROM item_phases WHERE item_id = ? ORDER BY id ASC').all([item.id]);
+  const phases = db.prepare('SELECT id, phase_label, quantity, target_date, phase_notes FROM item_phases WHERE item_id = ? ORDER BY id ASC').all([item.id]);
   item.phases = phases;
 
   res.json({ item });
@@ -59,13 +59,13 @@ router.get('/:id/images', (req, res) => {
 });
 
 router.post('/', uploadItem.single('image'), (req, res) => {
-  const { title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed, treasurer_email } = req.body;
+  const { title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed, treasurer_email, payment_method, payment_instructions } = req.body;
   if (!title) return res.status(400).json({ error: 'Title is required' });
 
   const image_url = req.file ? `/uploads/items/${req.file.filename}` : null;
   const result = db.prepare(
-    `INSERT INTO items (title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed, image_url, treasurer_email)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO items (title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed, image_url, treasurer_email, payment_method, payment_instructions)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run([
     title,
     purpose_impact || null,
@@ -80,6 +80,8 @@ router.post('/', uploadItem.single('image'), (req, res) => {
     parseInt(quantity_needed) || 1,
     image_url,
     treasurer_email || null,
+    payment_method || null,
+    payment_instructions || null,
   ]);
 
   if (image_url) {
@@ -87,9 +89,9 @@ router.post('/', uploadItem.single('image'), (req, res) => {
   }
 
   const phases = req.body.phases ? JSON.parse(req.body.phases) : [];
-  const insertPhase = db.prepare('INSERT INTO item_phases (item_id, phase_label, quantity, target_date) VALUES (?, ?, ?, ?)');
+  const insertPhase = db.prepare('INSERT INTO item_phases (item_id, phase_label, quantity, target_date, phase_notes) VALUES (?, ?, ?, ?, ?)');
   for (const phase of phases) {
-    insertPhase.run([result.lastInsertRowid, phase.label || '', phase.quantity, phase.date || null]);
+    insertPhase.run([result.lastInsertRowid, phase.label || '', phase.quantity, phase.date || null, phase.notes || null]);
   }
 
   res.status(201).json({ id: result.lastInsertRowid, message: 'Item created successfully' });
@@ -112,7 +114,7 @@ router.patch('/:id', (req, res) => {
   const item = db.prepare('SELECT id FROM items WHERE id = ?').get([req.params.id]);
   if (!item) return res.status(404).json({ error: 'Item not found' });
 
-  const { title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed, treasurer_email } = req.body;
+  const { title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed, treasurer_email, payment_method, payment_instructions } = req.body;
   db.prepare(
     `UPDATE items SET title = COALESCE(?, title), purpose_impact = COALESCE(?, purpose_impact),
      cost = COALESCE(?, cost), cost_max = ?,
@@ -120,7 +122,7 @@ router.patch('/:id', (req, res) => {
      service_benefiting = COALESCE(?, service_benefiting), tax_receipt = COALESCE(?, tax_receipt),
      link = COALESCE(?, link), need_by_date = COALESCE(?, need_by_date),
      item_status = COALESCE(?, item_status), quantity_needed = COALESCE(?, quantity_needed),
-     treasurer_email = ?
+     treasurer_email = ?, payment_method = ?, payment_instructions = ?
      WHERE id = ?`
   ).run([title || null, purpose_impact || null, cost ? parseFloat(cost) : null,
     cost_max ? parseFloat(cost_max) : null,
@@ -128,6 +130,8 @@ router.patch('/:id', (req, res) => {
     need_by_date || null, item_status || null,
     quantity_needed ? parseInt(quantity_needed) : null,
     treasurer_email !== undefined ? (treasurer_email || null) : undefined,
+    payment_method !== undefined ? (payment_method || null) : undefined,
+    payment_instructions !== undefined ? (payment_instructions || null) : undefined,
     req.params.id]);
 
   res.json({ message: 'Item updated' });
@@ -150,18 +154,18 @@ router.patch('/:id/images/reorder', (req, res) => {
 
 // ── Phase management ──────────────────────────────────────────
 router.post('/:id/phases', (req, res) => {
-  const { label, quantity, date } = req.body;
+  const { label, quantity, date, notes } = req.body;
   const result = db.prepare(
-    'INSERT INTO item_phases (item_id, phase_label, quantity, target_date) VALUES (?, ?, ?, ?)'
-  ).run([req.params.id, label || '', parseInt(quantity) || 1, date || null]);
+    'INSERT INTO item_phases (item_id, phase_label, quantity, target_date, phase_notes) VALUES (?, ?, ?, ?, ?)'
+  ).run([req.params.id, label || '', parseInt(quantity) || 1, date || null, notes || null]);
   res.status(201).json({ id: result.lastInsertRowid });
 });
 
 router.patch('/:id/phases/:phaseId', (req, res) => {
-  const { label, quantity, date } = req.body;
+  const { label, quantity, date, notes } = req.body;
   db.prepare(
-    'UPDATE item_phases SET phase_label = ?, quantity = ?, target_date = ? WHERE id = ? AND item_id = ?'
-  ).run([label || '', parseInt(quantity) || 1, date || null, req.params.phaseId, req.params.id]);
+    'UPDATE item_phases SET phase_label = ?, quantity = ?, target_date = ?, phase_notes = ? WHERE id = ? AND item_id = ?'
+  ).run([label || '', parseInt(quantity) || 1, date || null, notes || null, req.params.phaseId, req.params.id]);
   res.json({ message: 'Phase updated' });
 });
 

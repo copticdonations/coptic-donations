@@ -1,8 +1,15 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Timeline from '../../components/tracking/Timeline';
-import { formatDate } from '../../lib/utils';
+import { formatDate, formatCurrency } from '../../lib/utils';
 import { uploadDonorReceipt, subscribeNewsletter } from '../../lib/api';
+
+const PAYMENT_LABELS = {
+  direct_vendor: 'Direct to Vendor — Pay the seller directly via Venmo, Zelle, PayPal, Cash App, or Apple Pay',
+  online_purchase: 'Online Purchase — Buy directly through Amazon, eBay, etc. and ship to the provided address',
+  church_fund: 'Church General Fund — Donate to the church\'s general fund with a note specifying the item',
+  other: 'See payment instructions provided',
+};
 
 export async function getServerSideProps({ params }) {
   if (params.code === 'lookup') return { props: { lookup: true } };
@@ -53,13 +60,62 @@ export default function TrackingPage({ lookup, notFound, error, donation, status
           <dl className="flex flex-col gap-2">
             <Row label="Committed by" value={donation.anonymous ? 'Anonymous' : donation.donor_name} />
             <Row label="Item" value={donation.item_title} />
-            {donation.purchase_date && (
-              <Row label="Purchased" value={formatDate(donation.purchase_date)} />
+            {donation.category && <Row label="Category" value={donation.category} />}
+            {donation.service_benefiting && <Row label="Service" value={donation.service_benefiting} />}
+            {donation.item_cost > 0 && (
+              <Row label="Cost per Unit" value={formatCurrency(donation.item_cost)} />
             )}
-            {donation.purchase_location && (
-              <Row label="From" value={donation.purchase_location} />
+            {donation.payment_method && (
+              <Row label="Payment Method" value={PAYMENT_LABELS[donation.payment_method] || donation.payment_method} />
             )}
+            {donation.payment_instructions && (
+              <Row label="Instructions" value={donation.payment_instructions} />
+            )}
+            {donation.item_link && (
+              <Row label="Reference" value={<a href={donation.item_link} target="_blank" rel="noopener noreferrer" className="text-gold hover:underline text-xs">View Link ↗</a>} />
+            )}
+            {donation.purchase_date && <Row label="Purchased" value={formatDate(donation.purchase_date)} />}
+            {donation.purchase_location && <Row label="From" value={donation.purchase_location} />}
           </dl>
+
+          {/* Commitment breakdown */}
+          {(() => {
+            try {
+              const cd = typeof donation.commitment_details === 'string'
+                ? JSON.parse(donation.commitment_details)
+                : donation.commitment_details;
+              if (!cd) return null;
+              const phases = cd.selected_phases || [];
+              return (
+                <div className="mt-4 pt-4 border-t border-sand-dark">
+                  <p className="text-xs font-bold text-navy uppercase tracking-wide mb-2">What You Committed To</p>
+                  {phases.length > 0 ? (
+                    <>
+                      {phases.map((ph, i) => (
+                        <div key={i} className="flex justify-between items-start py-1.5 border-b border-sand-dark last:border-0">
+                          <div>
+                            <p className="text-sm font-semibold text-navy">{ph.phase_label || `Phase ${i + 1}`}</p>
+                            {ph.target_date && <p className="text-xs text-gray-400">Needed by {formatDate(ph.target_date)}</p>}
+                            <p className="text-xs text-gray-500">{ph.quantity} unit{ph.quantity !== 1 ? 's' : ''} × {formatCurrency(ph.unit_cost)}</p>
+                          </div>
+                          <span className="font-bold text-navy text-sm">{formatCurrency(ph.subtotal)}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between mt-2 font-bold text-navy">
+                        <span>Total ({phases.reduce((s, p) => s + p.quantity, 0)} units)</span>
+                        <span className="text-gold">{formatCurrency(cd.total_amount)}</span>
+                      </div>
+                    </>
+                  ) : cd.selected_qty ? (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">{cd.selected_qty} unit{cd.selected_qty !== 1 ? 's' : ''}</span>
+                      {cd.total_amount > 0 && <span className="font-bold text-gold">{formatCurrency(cd.total_amount)}</span>}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            } catch { return null; }
+          })()}
         </div>
 
         {donation.item_image_url && (
@@ -174,10 +230,11 @@ function ReceiptUpload({ donation }) {
             <label className="label">Receipt Image</label>
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
               onChange={e => setFile(e.target.files[0])}
               className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-gold-light file:text-navy file:font-semibold hover:file:bg-gold cursor-pointer"
             />
+            <p className="text-xs text-gray-400 mt-1">Accepted: JPEG, PNG, WebP, or PDF — max 5 MB</p>
           </div>
           <button type="submit" disabled={uploading} className="btn-secondary self-start text-sm px-4 py-2">
             {uploading ? 'Uploading...' : 'Upload Receipt'}

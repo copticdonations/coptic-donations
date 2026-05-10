@@ -4,10 +4,15 @@ const db = require('../db/database');
 
 router.get('/:code', (req, res) => {
   const donation = db.prepare(`
-    SELECT d.id, d.tracking_code, d.donor_name, d.donor_email, d.anonymous,
-           d.tax_receipt_requested, d.purchase_date, d.purchase_location, d.receipt_image_url,
-           d.installation_photo_url, d.created_at,
-           i.title as item_title, i.image_url as item_image_url, i.tax_receipt as item_tax_receipt
+    SELECT d.id, d.tracking_code, d.donor_name, d.donor_email, d.donor_phone, d.anonymous,
+           d.tax_receipt_requested, d.purchase_date, d.purchase_location,
+           d.receipt_image_url, d.receipt_uploaded_at,
+           d.installation_photo_url, d.created_at, d.commitment_details,
+           i.title as item_title, i.image_url as item_image_url,
+           i.tax_receipt as item_tax_receipt, i.cost as item_cost,
+           i.cost_max as item_cost_max, i.link as item_link,
+           i.payment_method, i.payment_instructions,
+           i.service_benefiting, i.category
     FROM donations d
     JOIN items i ON i.id = d.item_id
     WHERE d.tracking_code = ?

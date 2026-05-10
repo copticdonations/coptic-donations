@@ -12,7 +12,7 @@ function generateTrackingCode() {
 }
 
 router.post('/', (req, res) => {
-  const { item_id, donor_name, donor_email, donor_phone, tax_receipt_requested, anonymous } = req.body;
+  const { item_id, donor_name, donor_email, donor_phone, tax_receipt_requested, anonymous, commitment_details } = req.body;
   if (!item_id || !donor_name) {
     return res.status(400).json({ error: 'item_id and donor_name are required' });
   }
@@ -30,8 +30,8 @@ router.post('/', (req, res) => {
 
   try {
     const result = db.prepare(
-      `INSERT INTO donations (item_id, donor_name, donor_email, donor_phone, tracking_code, tax_receipt_requested, anonymous, amount)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 0)`
+      `INSERT INTO donations (item_id, donor_name, donor_email, donor_phone, tracking_code, tax_receipt_requested, anonymous, amount, commitment_details)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`
     ).run([
       item_id,
       donor_name,
@@ -40,6 +40,7 @@ router.post('/', (req, res) => {
       tracking_code,
       tax_receipt_requested ? 1 : 0,
       anonymous ? 1 : 0,
+      commitment_details ? JSON.stringify(commitment_details) : null,
     ]);
     donation_id = result.lastInsertRowid;
   } catch (err) {

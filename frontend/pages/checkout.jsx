@@ -30,6 +30,7 @@ export default function CheckoutPage() {
         donor_phone: pending.donor_phone || undefined,
         tax_receipt_requested: pending.tax_receipt_requested ? 1 : 0,
         anonymous: pending.anonymous ? 1 : 0,
+        commitment_details: pending.commitment_details || undefined,
       });
 
       if (receiptFile && result.donation_id) {
@@ -57,8 +58,17 @@ export default function CheckoutPage() {
   }
 
   const unitCost = pending.unit_cost || 0;
-  const qty = pending.selected_qty || pending.phase_quantity || 1;
-  const subtotal = unitCost > 0 ? unitCost * qty : null;
+  const cd = pending.commitment_details || {};
+  const selectedPhases = cd.selected_phases || [];
+  const qty = cd.selected_qty || (selectedPhases.length === 0 ? 1 : null);
+  const total = cd.total_amount || (unitCost * (qty || 1)) || null;
+
+const PAYMENT_LABELS = {
+  direct_vendor: 'Direct to Vendor',
+  online_purchase: 'Online Purchase',
+  church_fund: 'Church General Fund',
+  other: 'Other',
+};
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
@@ -82,17 +92,32 @@ export default function CheckoutPage() {
         <dl className="flex flex-col gap-3">
           <Row label="Item" value={pending.item_title} />
           {pending.category && <Row label="Category" value={pending.category} />}
-          {pending.phase_label && <Row label="Phase" value={pending.phase_label} />}
-          {qty > 1 && <Row label="Quantity" value={`${qty} unit${qty !== 1 ? 's' : ''}`} />}
+          {pending.payment_method && <Row label="Payment Method" value={PAYMENT_LABELS[pending.payment_method] || pending.payment_method} />}
           {unitCost > 0 && <Row label="Cost per Unit" value={formatCurrency(unitCost)} />}
-          {subtotal && qty > 1 && (
-            <Row label="Subtotal" value={<span className="text-navy font-bold text-lg">{formatCurrency(subtotal)}</span>} />
+
+          {/* Multi-phase breakdown */}
+          {selectedPhases.length > 0 && (
+            <div className="border-t border-sand-dark pt-2 mt-1">
+              {selectedPhases.map((ph, i) => (
+                <div key={i} className="flex justify-between items-start py-1 text-sm">
+                  <div>
+                    <p className="font-semibold text-navy">{ph.phase_label || `Phase ${i + 1}`}</p>
+                    {ph.target_date && <p className="text-xs text-gray-400">Needed by {formatDate(ph.target_date)}</p>}
+                    <p className="text-xs text-gray-500">{ph.quantity} unit{ph.quantity !== 1 ? 's' : ''} × {formatCurrency(ph.unit_cost)}</p>
+                  </div>
+                  <span className="font-bold text-navy">{formatCurrency(ph.subtotal)}</span>
+                </div>
+              ))}
+            </div>
           )}
-          {subtotal && qty === 1 && (
-            <Row label="Total" value={<span className="text-navy font-bold text-lg">{formatCurrency(subtotal)}</span>} />
-          )}
+
+          {/* Single qty */}
+          {qty > 1 && selectedPhases.length === 0 && <Row label="Quantity" value={`${qty} units`} />}
           {pending.need_by_date && (
             <Row label="Needed By" value={<span className="text-red-600 font-bold">{formatDate(pending.need_by_date)}</span>} />
+          )}
+          {total > 0 && (
+            <Row label="Total" value={<span className="text-navy font-bold text-lg">{formatCurrency(total)}</span>} />
           )}
           <div className="border-t border-sand-dark my-1" />
           <Row label="Your Name" value={pending.donor_name} />

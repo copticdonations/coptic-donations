@@ -76,8 +76,9 @@ function ItemsTab() {
     title: '', purpose_impact: '', cost: '', cost_max: '', category: '',
     service_benefiting: '', tax_receipt: 'possible', link: '',
     item_status: 'available', treasurer_email: '',
+    payment_method: '', payment_instructions: '',
   });
-  const [phases, setPhases] = useState([{ label: '', quantity: '1', date: '' }]);
+  const [phases, setPhases] = useState([{ label: '', quantity: '1', date: '', notes: '' }]);
   const [images, setImages] = useState([]); // [{file, preview}]
   const [cropIndex, setCropIndex] = useState(null);
   const [cropSrc, setCropSrc] = useState(null);
@@ -162,8 +163,9 @@ function ItemsTab() {
       setSuccess('Item added successfully!');
       setForm({ title: '', purpose_impact: '', cost: '', cost_max: '', category: '',
         service_benefiting: '', tax_receipt: 'possible', link: '',
-        item_status: 'available', treasurer_email: '' });
-      setPhases([{ label: '', quantity: '1', date: '' }]);
+        item_status: 'available', treasurer_email: '',
+        payment_method: '', payment_instructions: '' });
+      setPhases([{ label: '', quantity: '1', date: '', notes: '' }]);
       setImages([]); setCropSrc(null); setCropIndex(null);
       if (fileRef.current) fileRef.current.value = '';
       loadItems();
@@ -279,6 +281,12 @@ function ItemsTab() {
                         />
                       </div>
                     </div>
+                    <input
+                      className="input text-sm"
+                      placeholder="Why is this needed by that date? (optional)"
+                      value={phase.notes || ''}
+                      onChange={e => setPhases(ps => ps.map((p, idx) => idx === i ? { ...p, notes: e.target.value } : p))}
+                    />
                     {subtotal > 0 && (
                       <p className="text-xs text-right text-navy font-semibold">
                         Subtotal: ${subtotal.toFixed(2)}
@@ -287,7 +295,7 @@ function ItemsTab() {
                   </div>
                 );
               })}
-              <button type="button" onClick={() => setPhases(ps => [...ps, { label: '', quantity: '1', date: '' }])}
+              <button type="button" onClick={() => setPhases(ps => [...ps, { label: '', quantity: '1', date: '', notes: '' }])}
                 className="text-sm text-gold hover:text-gold-dark font-semibold text-left">
                 + Add Phase
               </button>
@@ -311,6 +319,21 @@ function ItemsTab() {
           <div>
             <label className="label">Church Treasurer Email <span className="text-gray-400 font-normal">(private — for tax receipts)</span></label>
             <input className="input" type="email" value={form.treasurer_email} onChange={f('treasurer_email')} placeholder="treasurer@church.org" />
+          </div>
+          <div>
+            <label className="label">Payment Method</label>
+            <select className="input" value={form.payment_method} onChange={f('payment_method')}>
+              <option value="">— Select —</option>
+              <option value="direct_vendor">Direct to Vendor (Venmo, Zelle, PayPal, etc.)</option>
+              <option value="online_purchase">Online Purchase (Amazon, eBay, etc.)</option>
+              <option value="church_fund">Church General Fund</option>
+              <option value="other">Other — Custom Instructions</option>
+            </select>
+          </div>
+          {(form.payment_method === 'other' || form.payment_method === 'direct_vendor' || form.payment_method === 'church_fund') && (
+          <div>
+            <label className="label">Payment Instructions <span className="text-gray-400 font-normal">(shown to donor)</span></label>
+            <textarea className="input resize-none" rows={2} value={form.payment_instructions} onChange={f('payment_instructions')} placeholder="e.g. Send via Venmo to @username, note 'Candles for St. Mark'" />
           </div>
           <div>
             <label className="label">Item Images <span className="text-gray-400 font-normal">(select multiple)</span></label>
@@ -417,6 +440,8 @@ function ItemRow({ item, onDelete, onRefresh }) {
       link: fullItem.link || '',
       quantity_needed: fullItem.quantity_needed || 1,
       treasurer_email: fullItem.treasurer_email || '',
+      payment_method: fullItem.payment_method || '',
+      payment_instructions: fullItem.payment_instructions || '',
     });
     setEditImages(imagesData.map((img, i) => ({ ...img, sort_order: img.sort_order ?? i })));
     setEditPhases((fullItem.phases || []).map(p => ({ ...p })));
@@ -432,8 +457,9 @@ function ItemRow({ item, onDelete, onRefresh }) {
 
       // Phase saves
       for (const ph of editPhases) {
-        if (ph.id) await updateItemPhase(item.id, ph.id, { label: ph.phase_label, quantity: ph.quantity, date: ph.target_date });
-        else await addItemPhase(item.id, { label: ph.phase_label, quantity: ph.quantity, date: ph.target_date });
+        const phData = { label: ph.phase_label, quantity: ph.quantity, date: ph.target_date, notes: ph.phase_notes };
+        if (ph.id) await updateItemPhase(item.id, ph.id, phData);
+        else await addItemPhase(item.id, phData);
       }
       for (const pid of deletedPhaseIds) await deleteItemPhase(item.id, pid);
 
@@ -569,6 +595,20 @@ function ItemRow({ item, onDelete, onRefresh }) {
             <label className="text-xs text-gray-500 mb-1 block">Church Treasurer Email (private — for tax receipts)</label>
             <input className="input text-sm" type="email" placeholder="treasurer@church.org" value={editForm.treasurer_email || ''} onChange={ef('treasurer_email')} />
           </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Payment Method</label>
+            <select className="input text-sm" value={editForm.payment_method || ''} onChange={ef('payment_method')}>
+              <option value="">— Select —</option>
+              <option value="direct_vendor">Direct to Vendor</option>
+              <option value="online_purchase">Online Purchase</option>
+              <option value="church_fund">Church General Fund</option>
+              <option value="other">Other — Custom Instructions</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Payment Instructions</label>
+            <textarea className="input text-sm resize-none" rows={2} value={editForm.payment_instructions || ''} onChange={ef('payment_instructions')} placeholder="e.g. Send via Venmo to @username" />
+          </div>
 
           {/* Phases */}
           <div>
@@ -581,6 +621,7 @@ function ItemRow({ item, onDelete, onRefresh }) {
                     <input className="input text-xs" type="number" min="1" placeholder="Qty" value={ph.quantity || ''} onChange={e => updatePhase(i, 'quantity', e.target.value)} />
                     <input className="input text-xs" type="date" value={ph.target_date || ''} onChange={e => updatePhase(i, 'target_date', e.target.value)} />
                   </div>
+                  <input className="input text-xs" placeholder="Why is this needed by that date? (optional)" value={ph.phase_notes || ''} onChange={e => updatePhase(i, 'phase_notes', e.target.value)} />
                   <button type="button" onClick={() => removePhase(i)} className="text-xs text-red-400 hover:text-red-600 font-semibold self-end">Remove phase</button>
                 </div>
               ))}
