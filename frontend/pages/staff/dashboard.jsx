@@ -2,7 +2,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Cropper from 'react-easy-crop';
 import { formatDate, STATUS_LABELS, STATUS_COLORS } from '../../lib/utils';
-import { createItem, addItemImage, updateItem, getAdminDonations, getAdminStats, deleteItem } from '../../lib/api';
+import { createItem, addItemImage, updateItem, deleteItem, getAdminDonations, getAdminStats,
+  getItem, getItemImages, deleteItemImage, reorderItemImages,
+  addItemPhase, updateItemPhase, deleteItemPhase,
+  saveConnectionNotes } from '../../lib/api';
 import Spinner from '../../components/ui/Spinner';
 import Badge from '../../components/ui/Badge';
 import AdminGuard from '../../components/ui/AdminGuard';
@@ -70,7 +73,7 @@ function ItemsTab() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
-    title: '', purpose_impact: '', cost: '', category: '',
+    title: '', purpose_impact: '', cost: '', cost_max: '', category: '',
     service_benefiting: '', tax_receipt: 'possible', link: '',
     item_status: 'available',
   });
@@ -157,7 +160,7 @@ function ItemsTab() {
         await addItemImage(result.id, fd2);
       }
       setSuccess('Item added successfully!');
-      setForm({ title: '', purpose_impact: '', cost: '', category: '',
+      setForm({ title: '', purpose_impact: '', cost: '', cost_max: '', category: '',
         service_benefiting: '', tax_receipt: 'possible', link: '',
         item_status: 'available' });
       setPhases([{ label: '', quantity: '1', date: '' }]);
@@ -195,8 +198,11 @@ function ItemsTab() {
             <textarea className="input resize-none" rows={3} value={form.purpose_impact} onChange={f('purpose_impact')} placeholder="Describe what this item does and its significance..." />
           </div>
           <div>
-            <label className="label">Cost per Unit ($)</label>
-            <input className="input" type="number" min="0" step="0.01" value={form.cost} onChange={f('cost')} placeholder="e.g. 150" />
+            <label className="label">Cost per Unit ($) <span className="text-gray-400 font-normal">— or range</span></label>
+            <div className="grid grid-cols-2 gap-2">
+              <input className="input" type="number" min="0" step="0.01" value={form.cost} onChange={f('cost')} placeholder="Min / exact" />
+              <input className="input" type="number" min="0" step="0.01" value={form.cost_max || ''} onChange={f('cost_max')} placeholder="Max (optional)" />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -378,16 +384,11 @@ function ItemsTab() {
 function ItemRow({ item, onDelete, onRefresh }) {
   const [showExtra, setShowExtra] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({
-    title: item.title || '',
-    purpose_impact: item.purpose_impact || '',
-    cost: item.cost || '',
-    category: item.category || '',
-    service_benefiting: item.service_benefiting || '',
-    tax_receipt: item.tax_receipt || 'possible',
-    item_status: item.item_status || 'available',
-    link: item.link || '',
-  });
+  const [editForm, setEditForm] = useState({});
+  const [editImages, setEditImages] = useState([]);
+  const [editPhases, setEditPhases] = useState([]);
+  const [deletedPhaseIds, setDeletedPhaseIds] = useState([]);
+  const [deletedImageIds, setDeletedImageIds] = useState([]);
   const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -395,10 +396,48 @@ function ItemRow({ item, onDelete, onRefresh }) {
 
   const ef = k => e => setEditForm(p => ({ ...p, [k]: e.target.value }));
 
+  async function openEdit() {
+    const [fullItem, imagesData] = await Promise.all([
+      getItem(item.id).then(d => d.item),
+      getItemImages(item.id).then(d => d.images),
+    ]);
+    setEditForm({
+      title: fullItem.title || '',
+      purpose_impact: fullItem.purpose_impact || '',
+      cost: fullItem.cost || '',
+      cost_max: fullItem.cost_max || '',
+      category: fullItem.category || '',
+      service_benefiting: fullItem.service_benefiting || '',
+      tax_receipt: fullItem.tax_receipt || 'possible',
+      item_status: fullItem.item_status || 'available',
+      link: fullItem.link || '',
+      quantity_needed: fullItem.quantity_needed || 1,
+    });
+    setEditImages(imagesData.map((img, i) => ({ ...img, sort_order: img.sort_order ?? i })));
+    setEditPhases((fullItem.phases || []).map(p => ({ ...p })));
+    setDeletedPhaseIds([]);
+    setDeletedImageIds([]);
+    setEditing(true);
+  }
+
   async function handleSave() {
     setSaving(true);
     try {
       await updateItem(item.id, editForm);
+
+      // Phase saves
+      for (const ph of editPhases) {
+        if (ph.id) await updateItemPhase(item.id, ph.id, { label: ph.phase_label, quantity: ph.quantity, date: ph.target_date });
+        else await addItemPhase(item.id, { label: ph.phase_label, quantity: ph.quantity, date: ph.target_date });
+      }
+      for (const pid of deletedPhaseIds) await deleteItemPhase(item.id, pid);
+
+      // Image reorder
+      if (editImages.length > 0) {
+        await reorderItemImages(item.id, editImages.map((img, i) => ({ id: img.id, sort_order: i })));
+      }
+      for (const imgId of deletedImageIds) await deleteItemImage(item.id, imgId);
+
       setEditing(false);
       onRefresh();
     } catch (err) {
@@ -406,6 +445,32 @@ function ItemRow({ item, onDelete, onRefresh }) {
     } finally {
       setSaving(false);
     }
+  }
+
+  function moveImage(i, dir) {
+    setEditImages(imgs => {
+      const next = [...imgs];
+      const swap = i + dir;
+      if (swap < 0 || swap >= next.length) return imgs;
+      [next[i], next[swap]] = [next[swap], next[i]];
+      return next;
+    });
+  }
+
+  function removeImage(i) {
+    const img = editImages[i];
+    if (img.id) setDeletedImageIds(ids => [...ids, img.id]);
+    setEditImages(imgs => imgs.filter((_, idx) => idx !== i));
+  }
+
+  function updatePhase(i, field, val) {
+    setEditPhases(ps => ps.map((p, idx) => idx === i ? { ...p, [field]: val } : p));
+  }
+
+  function removePhase(i) {
+    const ph = editPhases[i];
+    if (ph.id) setDeletedPhaseIds(ids => [...ids, ph.id]);
+    setEditPhases(ps => ps.filter((_, idx) => idx !== i));
   }
 
   async function handleAddImage(e) {
@@ -445,8 +510,8 @@ function ItemRow({ item, onDelete, onRefresh }) {
           <button onClick={() => setShowExtra(!showExtra)} className="text-blue-400 hover:text-blue-600 text-xs font-semibold">
             {showExtra ? 'Hide' : 'More'}
           </button>
-          <button onClick={() => setEditing(!editing)} className="text-gold hover:text-gold-dark text-xs font-semibold">
-            Edit
+          <button onClick={editing ? () => setEditing(false) : openEdit} className="text-gold hover:text-gold-dark text-xs font-semibold">
+            {editing ? 'Close' : 'Edit'}
           </button>
           <button onClick={() => onDelete(item.id)} className="text-red-400 hover:text-red-600 text-xs font-semibold">
             Delete
@@ -454,32 +519,93 @@ function ItemRow({ item, onDelete, onRefresh }) {
         </div>
       </div>
       {editing && (
-        <div className="mt-3 pt-3 border-t border-sand-dark flex flex-col gap-2">
-          <input className="input text-sm" placeholder="Title" value={editForm.title} onChange={ef('title')} />
-          <textarea className="input text-sm resize-none" rows={2} placeholder="Purpose / Impact" value={editForm.purpose_impact} onChange={ef('purpose_impact')} />
+        <div className="mt-3 pt-3 border-t border-sand-dark flex flex-col gap-3">
+          {/* Basic fields */}
+          <input className="input text-sm" placeholder="Title" value={editForm.title || ''} onChange={ef('title')} />
+          <textarea className="input text-sm resize-none" rows={2} placeholder="Purpose / Impact" value={editForm.purpose_impact || ''} onChange={ef('purpose_impact')} />
           <div className="grid grid-cols-2 gap-2">
-            <input className="input text-sm" type="number" placeholder="Cost ($)" value={editForm.cost} onChange={ef('cost')} />
-            <input className="input text-sm" placeholder="Category" value={editForm.category} onChange={ef('category')} />
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Cost min ($)</label>
+              <input className="input text-sm" type="number" min="0" step="0.01" value={editForm.cost || ''} onChange={ef('cost')} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Cost max ($)</label>
+              <input className="input text-sm" type="number" min="0" step="0.01" value={editForm.cost_max || ''} onChange={ef('cost_max')} placeholder="Optional" />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <select className="input text-sm" value={editForm.tax_receipt} onChange={ef('tax_receipt')}>
+            <input className="input text-sm" placeholder="Category" value={editForm.category || ''} onChange={ef('category')} />
+            <input className="input text-sm" placeholder="Service Benefiting" value={editForm.service_benefiting || ''} onChange={ef('service_benefiting')} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Qty Needed</label>
+              <input className="input text-sm" type="number" min="1" value={editForm.quantity_needed || 1} onChange={ef('quantity_needed')} />
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Status</label>
+              <select className="input text-sm" value={editForm.item_status || 'available'} onChange={ef('item_status')}>
+                <option value="available">Available</option>
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <select className="input text-sm" value={editForm.tax_receipt || 'possible'} onChange={ef('tax_receipt')}>
               <option value="yes">Tax Receipt: Yes</option>
               <option value="possible">Tax Receipt: Possible</option>
               <option value="no">Tax Receipt: No</option>
             </select>
-            <select className="input text-sm" value={editForm.item_status} onChange={ef('item_status')}>
-              <option value="available">Available</option>
-              <option value="pending">Pending</option>
-              <option value="completed">Completed</option>
-              <option value="archived">Archived</option>
-            </select>
+            <input className="input text-sm" type="url" placeholder="Reference Link (optional)" value={editForm.link || ''} onChange={ef('link')} />
           </div>
-          <input className="input text-sm" placeholder="Service Benefiting" value={editForm.service_benefiting} onChange={ef('service_benefiting')} />
-          <input className="input text-sm" type="url" placeholder="Reference Link (optional)" value={editForm.link} onChange={ef('link')} />
+
+          {/* Phases */}
+          <div>
+            <p className="text-xs font-semibold text-navy mb-2">Phases</p>
+            <div className="flex flex-col gap-2">
+              {editPhases.map((ph, i) => (
+                <div key={i} className="bg-sand rounded-lg p-2 flex flex-col gap-1.5">
+                  <input className="input text-xs" placeholder="Phase label" value={ph.phase_label || ''} onChange={e => updatePhase(i, 'phase_label', e.target.value)} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <input className="input text-xs" type="number" min="1" placeholder="Qty" value={ph.quantity || ''} onChange={e => updatePhase(i, 'quantity', e.target.value)} />
+                    <input className="input text-xs" type="date" value={ph.target_date || ''} onChange={e => updatePhase(i, 'target_date', e.target.value)} />
+                  </div>
+                  <button type="button" onClick={() => removePhase(i)} className="text-xs text-red-400 hover:text-red-600 font-semibold self-end">Remove phase</button>
+                </div>
+              ))}
+              <button type="button" onClick={() => setEditPhases(ps => [...ps, { phase_label: '', quantity: 1, target_date: '' }])}
+                className="text-xs text-gold hover:text-gold-dark font-semibold text-left">
+                + Add Phase
+              </button>
+            </div>
+          </div>
+
+          {/* Images */}
+          {editImages.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-navy mb-2">Images — drag to reorder</p>
+              <div className="flex flex-col gap-2">
+                {editImages.map((img, i) => (
+                  <div key={img.id || i} className="flex items-center gap-2 bg-sand rounded-lg p-2">
+                    <img src={img.image_url} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0 border border-sand-dark" />
+                    {i === 0 && <span className="text-[10px] font-bold text-gold bg-navy px-1.5 py-0.5 rounded flex-shrink-0">Main</span>}
+                    <div className="flex flex-col gap-0.5 ml-auto">
+                      <button type="button" onClick={() => moveImage(i, -1)} disabled={i === 0} className="text-navy hover:text-gold disabled:opacity-20 text-xs font-bold">▲</button>
+                      <button type="button" onClick={() => moveImage(i, 1)} disabled={i === editImages.length - 1} className="text-navy hover:text-gold disabled:opacity-20 text-xs font-bold">▼</button>
+                    </div>
+                    <button type="button" onClick={() => removeImage(i)} className="text-red-400 hover:text-red-600 text-xs font-semibold flex-shrink-0">Delete</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex gap-2">
             <button type="button" onClick={handleSave} disabled={saving}
               className="flex-1 bg-gold text-navy text-sm font-semibold py-1.5 rounded-lg hover:bg-gold-dark transition-colors">
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving ? 'Saving...' : 'Save All Changes'}
             </button>
             <button type="button" onClick={() => setEditing(false)}
               className="flex-1 bg-gray-100 text-gray-600 text-sm font-semibold py-1.5 rounded-lg hover:bg-gray-200 transition-colors">
@@ -586,35 +712,67 @@ function ConnectionsTab() {
   }, []);
 
   if (loading) return <div className="flex justify-center py-10"><Spinner /></div>;
-
-  if (connections.length === 0) return (
-    <p className="text-center text-gray-400 py-10">No connections yet.</p>
-  );
+  if (connections.length === 0) return <p className="text-center text-gray-400 py-10">No connections yet.</p>;
 
   return (
     <div className="flex flex-col gap-3">
       {connections.map(c => (
-        <div key={c.id} className="bg-white rounded-xl shadow-sm p-4">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-            <div>
-              <p className="font-bold text-navy">{c.name}</p>
-              <a href={`mailto:${c.email}`} className="text-sm text-gold hover:underline">{c.email}</a>
-              {c.phone && <p className="text-sm text-gray-500 mt-0.5">{c.phone}</p>}
-            </div>
-            <div className="text-right">
-              {c.offer_type && (
-                <span className="inline-block bg-sand-dark text-navy text-xs font-semibold px-2 py-1 rounded-full">
-                  {c.offer_type}
-                </span>
-              )}
-              <p className="text-xs text-gray-400 mt-1">{formatDate(c.created_at)}</p>
-            </div>
-          </div>
-          {c.description && (
-            <p className="text-sm text-gray-600 mt-3 pt-3 border-t border-sand-dark">{c.description}</p>
-          )}
-        </div>
+        <ConnectionCard key={c.id} connection={c} />
       ))}
+    </div>
+  );
+}
+
+function ConnectionCard({ connection: c }) {
+  const [notes, setNotes] = useState(c.notes || '');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function handleSaveNotes() {
+    setSaving(true);
+    try {
+      await saveConnectionNotes(c.id, notes);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (err) {
+      alert('Failed to save notes: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+        <div>
+          <p className="font-bold text-navy">{c.name}</p>
+          <a href={`mailto:${c.email}`} className="text-sm text-gold hover:underline">{c.email}</a>
+          {c.phone && <p className="text-sm text-gray-500 mt-0.5">{c.phone}</p>}
+        </div>
+        <div className="text-right">
+          {c.offer_type && (
+            <span className="inline-block bg-sand-dark text-navy text-xs font-semibold px-2 py-1 rounded-full">{c.offer_type}</span>
+          )}
+          <p className="text-xs text-gray-400 mt-1">{formatDate(c.created_at)}</p>
+        </div>
+      </div>
+      {c.description && (
+        <p className="text-sm text-gray-600 mt-3 pt-3 border-t border-sand-dark">{c.description}</p>
+      )}
+      <div className="mt-3 pt-3 border-t border-sand-dark">
+        <label className="text-xs font-semibold text-navy mb-1 block">Internal Notes</label>
+        <textarea
+          className="input text-sm resize-none w-full"
+          rows={2}
+          placeholder="Add private notes here..."
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+        />
+        <button onClick={handleSaveNotes} disabled={saving}
+          className="mt-1.5 text-xs bg-gold text-navy font-semibold px-3 py-1 rounded-lg hover:bg-gold-dark transition-colors">
+          {saving ? 'Saving...' : saved ? '✓ Saved' : 'Save Notes'}
+        </button>
+      </div>
     </div>
   );
 }

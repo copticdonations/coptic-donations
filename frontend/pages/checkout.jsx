@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { formatCurrency, formatDate } from '../lib/utils';
-import { createDonation } from '../lib/api';
+import { createDonation, uploadDonorReceipt } from '../lib/api';
 import Spinner from '../components/ui/Spinner';
 
 export default function CheckoutPage() {
@@ -10,14 +10,13 @@ export default function CheckoutPage() {
   const [pending, setPending] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [receiptFile, setReceiptFile] = useState(null);
+  const fileRef = useRef();
 
   useEffect(() => {
     const data = sessionStorage.getItem('pendingDonation');
-    if (!data) {
-      router.replace('/');
-    } else {
-      setPending(JSON.parse(data));
-    }
+    if (!data) router.replace('/');
+    else setPending(JSON.parse(data));
   }, [router]);
 
   async function handleCommit() {
@@ -32,6 +31,13 @@ export default function CheckoutPage() {
         tax_receipt_requested: pending.tax_receipt_requested ? 1 : 0,
         anonymous: pending.anonymous ? 1 : 0,
       });
+
+      if (receiptFile && result.donation_id) {
+        const fd = new FormData();
+        fd.append('receipt', receiptFile);
+        await uploadDonorReceipt(result.donation_id, fd).catch(() => {});
+      }
+
       sessionStorage.removeItem('pendingDonation');
       sessionStorage.setItem('donationSuccess', JSON.stringify({
         tracking_code: result.tracking_code,
@@ -47,12 +53,12 @@ export default function CheckoutPage() {
   }
 
   if (!pending) {
-    return (
-      <div className="flex justify-center items-center min-h-[50vh]">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <div className="flex justify-center items-center min-h-[50vh]"><Spinner size="lg" /></div>;
   }
+
+  const unitCost = pending.unit_cost || 0;
+  const qty = pending.selected_qty || pending.phase_quantity || 1;
+  const subtotal = unitCost > 0 ? unitCost * qty : null;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-12">
@@ -61,54 +67,76 @@ export default function CheckoutPage() {
       </Link>
 
       <h1 className="text-3xl font-bold text-navy mb-2">Review Your Commitment</h1>
-      <p className="text-gray-500 mb-8">Please review the details below before confirming.</p>
+      <p className="text-gray-500 mb-8">Please review all details before confirming.</p>
 
-      <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
-        {pending.item_image_url && (
-          <div className="aspect-video bg-sand-dark">
-            <img src={pending.item_image_url} alt={pending.item_title} className="w-full h-full object-cover" />
-          </div>
-        )}
-        <div className="p-6">
-          <h2 className="text-xl font-bold text-navy">{pending.item_title}</h2>
-          {pending.category && (
-            <span className="text-xs bg-navy text-gold px-2 py-0.5 rounded font-semibold mt-1 inline-block">
-              {pending.category}
-            </span>
-          )}
+      {/* Item image */}
+      {pending.item_image_url && (
+        <div className="rounded-xl overflow-hidden shadow-md mb-6 bg-sand-dark">
+          <img src={pending.item_image_url} alt={pending.item_title} className="w-full max-h-56 object-cover" />
         </div>
-      </div>
+      )}
 
+      {/* Full summary */}
       <div className="bg-white rounded-xl shadow-md p-6 mb-6">
         <h3 className="text-lg font-bold text-navy mb-4 border-b border-sand-dark pb-2">Commitment Summary</h3>
         <dl className="flex flex-col gap-3">
-          <Row label="Your Name" value={pending.donor_name} />
-          {pending.donor_email && <Row label="Email" value={pending.donor_email} />}
-          {pending.donor_phone && <Row label="Phone" value={pending.donor_phone} />}
           <Row label="Item" value={pending.item_title} />
+          {pending.category && <Row label="Category" value={pending.category} />}
           {pending.phase_label && <Row label="Phase" value={pending.phase_label} />}
+          {qty > 1 && <Row label="Quantity" value={`${qty} unit${qty !== 1 ? 's' : ''}`} />}
+          {unitCost > 0 && <Row label="Cost per Unit" value={formatCurrency(unitCost)} />}
+          {subtotal && qty > 1 && (
+            <Row label="Subtotal" value={<span className="text-navy font-bold text-lg">{formatCurrency(subtotal)}</span>} />
+          )}
+          {subtotal && qty === 1 && (
+            <Row label="Total" value={<span className="text-navy font-bold text-lg">{formatCurrency(subtotal)}</span>} />
+          )}
           {pending.need_by_date && (
             <Row label="Needed By" value={<span className="text-red-600 font-bold">{formatDate(pending.need_by_date)}</span>} />
           )}
+          <div className="border-t border-sand-dark my-1" />
+          <Row label="Your Name" value={pending.donor_name} />
+          <Row label="Email" value={pending.donor_email} />
+          <Row label="Phone" value={pending.donor_phone} />
           {pending.tax_receipt_requested && (
             <Row label="Tax Receipt" value={<span className="text-green-700 font-semibold">Requested</span>} />
           )}
         </dl>
       </div>
 
+      {/* Receipt upload — only if tax receipt requested */}
+      {pending.tax_receipt_requested && (
+        <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+          <h3 className="text-lg font-bold text-navy mb-1">Upload Your Receipt</h3>
+          <p className="text-sm text-gray-500 mb-4">
+            If you have already made your purchase, you can upload your receipt now. You can also do this later from your tracking page.
+          </p>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            onChange={e => setReceiptFile(e.target.files[0] || null)}
+            className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-gold-light file:text-navy file:font-semibold hover:file:bg-gold cursor-pointer"
+          />
+          {receiptFile && (
+            <p className="text-xs text-green-700 font-semibold mt-2">✓ {receiptFile.name} selected</p>
+          )}
+        </div>
+      )}
+
+      {/* Commitment notice */}
       <div className="bg-gold-light border border-gold rounded-xl p-4 mb-4 text-sm text-navy-dark leading-relaxed">
         By confirming, you are committing to cover the cost of this item within 48 hours of being contacted by Coptic Donations with instructions, or as soon as possible thereafter.
       </div>
 
+      {/* 48h warning */}
       <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-sm text-red-800">
         <strong>Please note:</strong> Once we contact you via email or phone, you have <strong>48 hours</strong> to respond.
         If we do not hear back within 48 hours, we will unfortunately need to release this commitment and make it available again on the website.
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">
-          {error}
-        </div>
+        <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">{error}</div>
       )}
 
       <button
@@ -116,14 +144,7 @@ export default function CheckoutPage() {
         disabled={submitting}
         className="btn-primary w-full text-center text-lg py-4 flex items-center justify-center gap-3"
       >
-        {submitting ? (
-          <>
-            <Spinner size="sm" />
-            Processing...
-          </>
-        ) : (
-          'Confirm Commitment'
-        )}
+        {submitting ? <><Spinner size="sm" /> Processing...</> : 'Confirm Commitment'}
       </button>
     </div>
   );
@@ -131,9 +152,9 @@ export default function CheckoutPage() {
 
 function Row({ label, value }) {
   return (
-    <div className="flex justify-between items-center">
-      <dt className="text-gray-500 text-sm">{label}</dt>
-      <dd className="font-semibold text-navy">{value}</dd>
+    <div className="flex justify-between items-start gap-4">
+      <dt className="text-gray-500 text-sm flex-shrink-0">{label}</dt>
+      <dd className="font-semibold text-navy text-right text-sm">{value}</dd>
     </div>
   );
 }

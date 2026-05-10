@@ -43,4 +43,10 @@ router.post('/', async (req, res) => {
   res.json({ message: 'Thank you! We will be in touch.' });
 });
 
+router.patch('/:id/notes', (req, res) => {
+  const { notes } = req.body;
+  db.prepare('UPDATE connections SET notes = ? WHERE id = ?').run([notes || null, req.params.id]);
+  res.json({ message: 'Notes saved' });
+});
+
 module.exports = router;

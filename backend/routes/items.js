@@ -59,17 +59,18 @@ router.get('/:id/images', (req, res) => {
 });
 
 router.post('/', uploadItem.single('image'), (req, res) => {
-  const { title, purpose_impact, cost, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed } = req.body;
+  const { title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed } = req.body;
   if (!title) return res.status(400).json({ error: 'Title is required' });
 
   const image_url = req.file ? `/uploads/items/${req.file.filename}` : null;
   const result = db.prepare(
-    `INSERT INTO items (title, purpose_impact, cost, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed, image_url)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO items (title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed, image_url)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run([
     title,
     purpose_impact || null,
     parseFloat(cost) || 0,
+    cost_max ? parseFloat(cost_max) : null,
     category || null,
     service_benefiting || null,
     tax_receipt || 'possible',
@@ -110,19 +111,59 @@ router.patch('/:id', (req, res) => {
   const item = db.prepare('SELECT id FROM items WHERE id = ?').get([req.params.id]);
   if (!item) return res.status(404).json({ error: 'Item not found' });
 
-  const { title, purpose_impact, cost, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed } = req.body;
+  const { title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed } = req.body;
   db.prepare(
     `UPDATE items SET title = COALESCE(?, title), purpose_impact = COALESCE(?, purpose_impact),
-     cost = COALESCE(?, cost), category = COALESCE(?, category),
+     cost = COALESCE(?, cost), cost_max = ?,
+     category = COALESCE(?, category),
      service_benefiting = COALESCE(?, service_benefiting), tax_receipt = COALESCE(?, tax_receipt),
      link = COALESCE(?, link), need_by_date = COALESCE(?, need_by_date),
      item_status = COALESCE(?, item_status), quantity_needed = COALESCE(?, quantity_needed)
      WHERE id = ?`
-  ).run([title || null, purpose_impact || null, cost ? parseFloat(cost) : null, category || null,
-    service_benefiting || null, tax_receipt || null, link || null, need_by_date || null,
-    item_status || null, quantity_needed ? parseInt(quantity_needed) : null, req.params.id]);
+  ).run([title || null, purpose_impact || null, cost ? parseFloat(cost) : null,
+    cost_max ? parseFloat(cost_max) : null,
+    category || null, service_benefiting || null, tax_receipt || null, link || null,
+    need_by_date || null, item_status || null,
+    quantity_needed ? parseInt(quantity_needed) : null, req.params.id]);
 
   res.json({ message: 'Item updated' });
+});
+
+// ── Image management ──────────────────────────────────────────
+router.delete('/:id/images/:imageId', (req, res) => {
+  db.prepare('DELETE FROM item_images WHERE id = ? AND item_id = ?').run([req.params.imageId, req.params.id]);
+  res.json({ message: 'Image deleted' });
+});
+
+router.patch('/:id/images/reorder', (req, res) => {
+  const { order } = req.body; // [{ id, sort_order }]
+  const stmt = db.prepare('UPDATE item_images SET sort_order = ? WHERE id = ? AND item_id = ?');
+  for (const { id, sort_order } of order) {
+    stmt.run([sort_order, id, req.params.id]);
+  }
+  res.json({ message: 'Reordered' });
+});
+
+// ── Phase management ──────────────────────────────────────────
+router.post('/:id/phases', (req, res) => {
+  const { label, quantity, date } = req.body;
+  const result = db.prepare(
+    'INSERT INTO item_phases (item_id, phase_label, quantity, target_date) VALUES (?, ?, ?, ?)'
+  ).run([req.params.id, label || null, parseInt(quantity) || 1, date || null]);
+  res.status(201).json({ id: result.lastInsertRowid });
+});
+
+router.patch('/:id/phases/:phaseId', (req, res) => {
+  const { label, quantity, date } = req.body;
+  db.prepare(
+    'UPDATE item_phases SET phase_label = ?, quantity = ?, target_date = ? WHERE id = ? AND item_id = ?'
+  ).run([label || null, parseInt(quantity) || 1, date || null, req.params.phaseId, req.params.id]);
+  res.json({ message: 'Phase updated' });
+});
+
+router.delete('/:id/phases/:phaseId', (req, res) => {
+  db.prepare('DELETE FROM item_phases WHERE id = ? AND item_id = ?').run([req.params.phaseId, req.params.id]);
+  res.json({ message: 'Phase deleted' });
 });
 
 router.delete('/:id', (req, res) => {

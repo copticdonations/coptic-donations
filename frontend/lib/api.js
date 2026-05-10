@@ -125,3 +125,43 @@ export async function submitConnection(data) {
     body: JSON.stringify(data),
   }));
 }
+
+export async function saveConnectionNotes(id, notes) {
+  return handleResponse(await fetch(`/api/connections/${id}/notes`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ notes }),
+  }));
+}
+
+export async function deleteItemImage(itemId, imageId) {
+  return handleResponse(await fetch(`/api/items/${itemId}/images/${imageId}`, { method: 'DELETE' }));
+}
+
+export async function reorderItemImages(itemId, order) {
+  return handleResponse(await fetch(`/api/items/${itemId}/images/reorder`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ order }),
+  }));
+}
+
+export async function addItemPhase(itemId, phase) {
+  return handleResponse(await fetch(`/api/items/${itemId}/phases`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(phase),
+  }));
+}
+
+export async function updateItemPhase(itemId, phaseId, phase) {
+  return handleResponse(await fetch(`/api/items/${itemId}/phases/${phaseId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(phase),
+  }));
+}
+
+export async function deleteItemPhase(itemId, phaseId) {
+  return handleResponse(await fetch(`/api/items/${itemId}/phases/${phaseId}`, { method: 'DELETE' }));
+}

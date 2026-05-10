@@ -58,7 +58,10 @@ export default function ItemPage({ item }) {
       tax_receipt: item.tax_receipt,
       need_by_date: needByDate || null,
       phase_label: phases.length > 0 ? (phases[selectedPhase]?.phase_label || `Phase ${selectedPhase + 1}`) : null,
+      phase_quantity: phases.length > 0 ? (phases[selectedPhase]?.quantity || 1) : null,
       selected_qty: phases.length === 0 && (item.quantity_needed || 1) > 1 ? selectedQty : null,
+      unit_cost: item.cost || item.suggested_amount || 0,
+      cost_max: item.cost_max || null,
       ...form,
     }));
 
@@ -145,8 +148,12 @@ export default function ItemPage({ item }) {
 
           <div className="mt-6 bg-gold-light rounded-xl p-4 border border-gold">
             <p className="text-sm text-navy-dark font-semibold">Estimated Cost</p>
-            <div className="flex items-baseline gap-2">
-              <p className="text-3xl font-bold text-navy">{formatCurrency(item.cost || item.suggested_amount)}</p>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <p className="text-3xl font-bold text-navy">
+                {item.cost_max && item.cost_max > item.cost
+                  ? `${formatCurrency(item.cost)} — ${formatCurrency(item.cost_max)}`
+                  : formatCurrency(item.cost || item.suggested_amount)}
+              </p>
               {(phases.length > 0 || (item.quantity_needed || 1) > 1) && (
                 <span className="text-sm text-gray-500">per unit</span>
               )}

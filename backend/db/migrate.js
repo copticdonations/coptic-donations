@@ -109,6 +109,16 @@ module.exports = function runMigrations(db) {
     mark(db, 'v2_new_tables');
   }
 
+  if (!ran(db, 'v2_cost_range')) {
+    try { db.exec('ALTER TABLE items ADD COLUMN cost_max REAL'); } catch (_) {}
+    mark(db, 'v2_cost_range');
+  }
+
+  if (!ran(db, 'v2_connection_notes')) {
+    try { db.exec('ALTER TABLE connections ADD COLUMN notes TEXT'); } catch (_) {}
+    mark(db, 'v2_connection_notes');
+  }
+
   if (!ran(db, 'v2_migrate_primary_images')) {
     const items = db.prepare("SELECT id, image_url FROM items WHERE image_url IS NOT NULL").all([]);
     const ins = db.prepare('INSERT OR IGNORE INTO item_images (item_id, image_url, sort_order) VALUES (?, ?, 0)');
