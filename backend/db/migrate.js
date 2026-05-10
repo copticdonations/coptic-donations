@@ -109,19 +109,24 @@ module.exports = function runMigrations(db) {
     mark(db, 'v2_new_tables');
   }
 
-  if (!ran(db, 'v2_treasurer_email')) {
-    try { db.exec('ALTER TABLE items ADD COLUMN treasurer_email TEXT'); } catch (_) {}
-    mark(db, 'v2_treasurer_email');
+  // Robust column additions — always check existence so silent failures get retried
+  function hasColumn(table, col) {
+    return db.prepare(`PRAGMA table_info(${table})`).all([]).some(c => c.name === col);
+  }
+  function addColumnSafe(table, col, def) {
+    if (!hasColumn(table, col)) {
+      try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`); } catch (e) {
+        console.error(`Failed to add ${table}.${col}:`, e.message);
+      }
+    }
   }
 
-  if (!ran(db, 'v2_receipt_uploaded_at')) {
-    try { db.exec('ALTER TABLE donations ADD COLUMN receipt_uploaded_at TEXT'); } catch (_) {}
-    mark(db, 'v2_receipt_uploaded_at');
-  }
-
-  if (!ran(db, 'v2_cost_range')) {
-    try { db.exec('ALTER TABLE items ADD COLUMN cost_max REAL'); } catch (_) {}
-    mark(db, 'v2_cost_range');
+  if (!ran(db, 'v2_columns_safe')) {
+    addColumnSafe('items', 'cost_max', 'REAL');
+    addColumnSafe('items', 'treasurer_email', 'TEXT');
+    addColumnSafe('donations', 'receipt_uploaded_at', 'TEXT');
+    addColumnSafe('connections', 'notes', 'TEXT');
+    mark(db, 'v2_columns_safe');
   }
 
   if (!ran(db, 'v2_connection_notes')) {

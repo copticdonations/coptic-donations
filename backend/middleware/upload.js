@@ -1,5 +1,6 @@
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
@@ -11,25 +12,23 @@ function fileFilter(req, file, cb) {
   }
 }
 
-const itemStorage = multer.diskStorage({
-  destination: path.join(__dirname, '../uploads/items'),
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`),
-});
+// UPLOADS_PATH env var points to a persistent volume on Railway.
+// Default falls back to local uploads/ for local dev.
+const baseUploadPath = process.env.UPLOADS_PATH || path.join(__dirname, '../uploads');
 
-const photoStorage = multer.diskStorage({
-  destination: path.join(__dirname, '../uploads/installations'),
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`),
-});
-
-const receiptStorage = multer.diskStorage({
-  destination: path.join(__dirname, '../uploads/receipts'),
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`),
-});
+function makeStorage(subdir) {
+  const dest = path.join(baseUploadPath, subdir);
+  fs.mkdirSync(dest, { recursive: true });
+  return multer.diskStorage({
+    destination: dest,
+    filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`),
+  });
+}
 
 const limits = { fileSize: 5 * 1024 * 1024 };
 
-const uploadItem = multer({ storage: itemStorage, fileFilter, limits });
-const uploadPhoto = multer({ storage: photoStorage, fileFilter, limits });
-const uploadReceipt = multer({ storage: receiptStorage, fileFilter, limits });
+const uploadItem    = multer({ storage: makeStorage('items'),         fileFilter, limits });
+const uploadPhoto   = multer({ storage: makeStorage('installations'), fileFilter, limits });
+const uploadReceipt = multer({ storage: makeStorage('receipts'),      fileFilter, limits });
 
-module.exports = { uploadItem, uploadPhoto, uploadReceipt };
+module.exports = { uploadItem, uploadPhoto, uploadReceipt, baseUploadPath };

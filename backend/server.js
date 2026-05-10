@@ -24,12 +24,13 @@ app.use(cors({
 app.use(morgan('dev'));
 app.use(express.json());
 
+const { baseUploadPath } = require('./middleware/upload');
 ['items', 'installations', 'receipts'].forEach(dir => {
-  const p = path.join(__dirname, 'uploads', dir);
+  const p = path.join(baseUploadPath, dir);
   if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true });
 });
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(baseUploadPath));
 
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/items', require('./routes/items'));
