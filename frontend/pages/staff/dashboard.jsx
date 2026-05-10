@@ -326,7 +326,7 @@ function ItemsTab() {
               <option value="">— Select —</option>
               <option value="direct_vendor">Direct to Vendor (Venmo, Zelle, PayPal, etc.)</option>
               <option value="online_purchase">Online Purchase (Amazon, eBay, etc.)</option>
-              <option value="church_fund">Church General Fund</option>
+              <option value="church_fund">Church General Fund — Donor sends to church fund with item noted in memo</option>
               <option value="other">Other — Custom Instructions</option>
             </select>
           </div>
@@ -602,7 +602,7 @@ function ItemRow({ item, onDelete, onRefresh }) {
               <option value="">— Select —</option>
               <option value="direct_vendor">Direct to Vendor</option>
               <option value="online_purchase">Online Purchase</option>
-              <option value="church_fund">Church General Fund</option>
+              <option value="church_fund">Church General Fund — Donor sends to church fund with item noted in memo</option>
               <option value="other">Other — Custom Instructions</option>
             </select>
           </div>

@@ -7,7 +7,7 @@ import { uploadDonorReceipt, subscribeNewsletter } from '../../lib/api';
 const PAYMENT_LABELS = {
   direct_vendor: 'Direct to Vendor — Pay the seller directly via Venmo, Zelle, PayPal, Cash App, or Apple Pay',
   online_purchase: 'Online Purchase — Buy directly through Amazon, eBay, etc. and ship to the provided address',
-  church_fund: 'Church General Fund — Donate to the church\'s general fund with a note specifying the item',
+  church_fund: 'Church General Fund — Send payment directly to the church\'s general fund or a designated sub-fund, with a note in the memo specifying the item',
   other: 'See payment instructions provided',
 };
 

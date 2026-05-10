@@ -125,7 +125,7 @@ module.exports = function generateCommitmentPdf(data) {
     // ── Next Steps ────────────────────────────────────────────────
     y = sectionTitle('NEXT STEPS', y);
     const steps = [
-      'We will contact you via email or phone to coordinate your commitment.',
+      'The coordinator will reach out to you directly via email or phone with specific instructions and next steps for completing your donation.',
       'Once contacted, you have 48 hours to respond. Failure to respond will release the commitment back to the community.',
       'Funds or items go directly to the church or approved method — never to Coptic Donations.',
       'Track your commitment online using your tracking code above.',

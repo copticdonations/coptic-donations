@@ -66,7 +66,7 @@ export default function CheckoutPage() {
 const PAYMENT_LABELS = {
   direct_vendor: 'Direct to Vendor',
   online_purchase: 'Online Purchase',
-  church_fund: 'Church General Fund',
+  church_fund: 'Church General Fund — Send to church fund with item noted in memo',
   other: 'Other',
 };
 
