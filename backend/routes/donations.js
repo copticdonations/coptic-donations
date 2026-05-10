@@ -3,6 +3,7 @@ const router = express.Router();
 const crypto = require('crypto');
 const db = require('../db/database');
 const { sendMail } = require('../lib/mailer');
+const generateCommitmentPdf = require('../lib/generateCommitmentPdf');
 
 function generateTrackingCode() {
   const year = new Date().getFullYear();
@@ -15,7 +16,7 @@ router.post('/', (req, res) => {
   if (!item_id || !donor_name) {
     return res.status(400).json({ error: 'item_id and donor_name are required' });
   }
-  const item = db.prepare('SELECT id, title FROM items WHERE id = ?').get([item_id]);
+  const item = db.prepare('SELECT id, title, cost, need_by_date FROM items WHERE id = ?').get([item_id]);
   if (!item) return res.status(404).json({ error: 'Item not found' });
 
   let tracking_code;
@@ -55,27 +56,61 @@ router.post('/', (req, res) => {
     console.warn('Status update failed (non-fatal):', statusErr.message);
   }
 
-  // Email notification — non-fatal
-  sendMail({
-    subject: `New Commitment: ${item.title}`,
-    text: [
-      `New commitment received for: ${item.title}`,
-      `Tracking code: ${tracking_code}`,
-      `Name: ${donor_name}`,
-      `Email: ${donor_email || 'N/A'}`,
-      `Phone: ${donor_phone || 'N/A'}`,
-      `Tax receipt requested: ${tax_receipt_requested ? 'Yes' : 'No'}`,
-    ].join('\n'),
-    html: `
-      <h2>New Commitment Received</h2>
-      <p><strong>Item:</strong> ${item.title}</p>
-      <p><strong>Tracking Code:</strong> ${tracking_code}</p>
-      <p><strong>Name:</strong> ${donor_name}</p>
-      <p><strong>Email:</strong> ${donor_email ? `<a href="mailto:${donor_email}">${donor_email}</a>` : 'N/A'}</p>
-      <p><strong>Phone:</strong> ${donor_phone || 'N/A'}</p>
-      <p><strong>Tax Receipt Requested:</strong> ${tax_receipt_requested ? 'Yes' : 'No'}</p>
-    `,
-  }).catch(err => console.error('Commitment email failed:', err.message));
+  // Generate PDF and send emails — non-fatal
+  const pdfData = {
+    donor_name,
+    donor_email,
+    donor_phone,
+    item_title: item.title,
+    item_cost: item.cost,
+    tracking_code,
+    need_by_date: req.body.need_by_date || item.need_by_date || null,
+    phase_label: req.body.phase_label || null,
+    tax_receipt_requested,
+    created_at: new Date().toISOString(),
+  };
+
+  generateCommitmentPdf(pdfData).then(async pdfBuffer => {
+    const attachment = [{
+      filename: `commitment-${tracking_code}.pdf`,
+      content: pdfBuffer.toString('base64'),
+    }];
+
+    // Email to coordinator
+    await sendMail({
+      to: 'copticdonations7@gmail.com',
+      subject: `New Commitment: ${item.title} — ${tracking_code}`,
+      html: `
+        <h2>New Commitment Received</h2>
+        <p><strong>Item:</strong> ${item.title}</p>
+        <p><strong>Tracking Code:</strong> ${tracking_code}</p>
+        <p><strong>Name:</strong> ${donor_name}</p>
+        <p><strong>Email:</strong> ${donor_email ? `<a href="mailto:${donor_email}">${donor_email}</a>` : 'N/A'}</p>
+        <p><strong>Phone:</strong> ${donor_phone || 'N/A'}</p>
+        <p><strong>Tax Receipt Requested:</strong> ${tax_receipt_requested ? 'Yes' : 'No'}</p>
+      `,
+      attachments: attachment,
+    });
+
+    // Confirmation email to donor
+    if (donor_email) {
+      await sendMail({
+        to: donor_email,
+        subject: `Your Commitment Confirmation — ${tracking_code}`,
+        html: `
+          <p>Dear ${donor_name},</p>
+          <p>Thank you for your commitment to <strong>${item.title}</strong>.</p>
+          <p>Your tracking code is: <strong>${tracking_code}</strong></p>
+          <p>Please find your full commitment details attached as a PDF.</p>
+          <p><strong>Please note: once we contact you, you have 48 hours to respond or the commitment will be released.</strong></p>
+          <br/>
+          <p>May God bless you for your generosity.</p>
+          <p>— Coptic Donations</p>
+        `,
+        attachments: attachment,
+      });
+    }
+  }).catch(err => console.error('PDF/email failed:', err.message));
 
   res.status(201).json({ donation_id, tracking_code, message: 'Commitment recorded. Keep your tracking code safe.' });
 });
