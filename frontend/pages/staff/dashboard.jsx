@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Cropper from 'react-easy-crop';
 import { formatDate, STATUS_LABELS, STATUS_COLORS } from '../../lib/utils';
-import { createItem, addItemImage, getAdminDonations, getAdminStats, deleteItem } from '../../lib/api';
+import { createItem, addItemImage, updateItem, getAdminDonations, getAdminStats, deleteItem } from '../../lib/api';
 import Spinner from '../../components/ui/Spinner';
 import Badge from '../../components/ui/Badge';
 import AdminGuard from '../../components/ui/AdminGuard';
@@ -75,8 +75,8 @@ function ItemsTab() {
     item_status: 'available',
   });
   const [phases, setPhases] = useState([{ label: '', quantity: '1', date: '' }]);
-  const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
+  const [images, setImages] = useState([]); // [{file, preview}]
+  const [cropIndex, setCropIndex] = useState(null);
   const [cropSrc, setCropSrc] = useState(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
@@ -97,10 +97,16 @@ function ItemsTab() {
 
   useEffect(() => { loadItems(); }, []);
 
-  function handleFile(e) {
-    const f = e.target.files[0];
-    if (!f) return;
-    setCropSrc(URL.createObjectURL(f));
+  function handleFiles(e) {
+    const files = Array.from(e.target.files);
+    const newImgs = files.map(f => ({ file: f, preview: URL.createObjectURL(f) }));
+    setImages(prev => [...prev, ...newImgs]);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
+  function openCrop(i) {
+    setCropIndex(i);
+    setCropSrc(images[i].preview);
     setCrop({ x: 0, y: 0 });
     setZoom(1);
   }
@@ -118,10 +124,15 @@ function ItemsTab() {
     canvas.getContext('2d').drawImage(img, x, y, width, height, 0, 0, width, height);
     canvas.toBlob(blob => {
       const croppedFile = new File([blob], 'image.jpg', { type: 'image/jpeg' });
-      setFile(croppedFile);
-      setPreview(URL.createObjectURL(blob));
+      const croppedPreview = URL.createObjectURL(blob);
+      setImages(prev => prev.map((img, i) => i === cropIndex ? { file: croppedFile, preview: croppedPreview } : img));
       setCropSrc(null);
+      setCropIndex(null);
     }, 'image/jpeg', 0.92);
+  }
+
+  function removeImage(i) {
+    setImages(prev => prev.filter((_, idx) => idx !== i));
   }
 
   async function handleSubmit(e) {
@@ -132,20 +143,25 @@ function ItemsTab() {
     try {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
-      if (file) fd.append('image', file);
+      if (images.length > 0) fd.append('image', images[0].file);
       const validPhases = phases.filter(p => parseInt(p.quantity) > 0);
       if (validPhases.length) {
         fd.append('phases', JSON.stringify(validPhases));
         const totalQty = validPhases.reduce((s, p) => s + (parseInt(p.quantity) || 0), 0);
         fd.append('quantity_needed', totalQty);
       }
-      await createItem(fd);
+      const result = await createItem(fd);
+      for (let i = 1; i < images.length; i++) {
+        const fd2 = new FormData();
+        fd2.append('image', images[i].file);
+        await addItemImage(result.id, fd2);
+      }
       setSuccess('Item added successfully!');
       setForm({ title: '', purpose_impact: '', cost: '', category: '',
         service_benefiting: '', tax_receipt: 'possible', link: '',
         item_status: 'available' });
       setPhases([{ label: '', quantity: '1', date: '' }]);
-      setFile(null); setPreview(null); setCropSrc(null);
+      setImages([]); setCropSrc(null); setCropIndex(null);
       if (fileRef.current) fileRef.current.value = '';
       loadItems();
     } catch (err) {
@@ -287,39 +303,53 @@ function ItemsTab() {
             <input className="input" type="url" value={form.link} onChange={f('link')} placeholder="https://..." />
           </div>
           <div>
-            <label className="label">Item Image</label>
-            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile}
+            <label className="label">Item Images <span className="text-gray-400 font-normal">(select multiple)</span></label>
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handleFiles}
               className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-gold-light file:text-navy file:font-semibold hover:file:bg-gold cursor-pointer" />
-            {cropSrc && (
-              <div className="mt-3">
-                <div className="relative w-full h-56 rounded-lg overflow-hidden bg-black">
-                  <Cropper
-                    image={cropSrc}
-                    crop={crop}
-                    zoom={zoom}
-                    aspect={16 / 9}
-                    onCropChange={setCrop}
-                    onZoomChange={setZoom}
-                    onCropComplete={onCropComplete}
-                  />
-                </div>
-                <div className="mt-2 flex items-center gap-3">
-                  <label className="text-xs text-gray-500 flex-shrink-0">Zoom</label>
-                  <input type="range" min={1} max={3} step={0.05} value={zoom}
-                    onChange={e => setZoom(Number(e.target.value))}
-                    className="flex-1 accent-gold" />
-                  <button type="button" onClick={applyCrop}
-                    className="text-sm bg-gold text-navy font-semibold px-4 py-1.5 rounded-lg hover:bg-gold-dark transition-colors flex-shrink-0">
-                    Apply Crop
-                  </button>
-                </div>
+            {images.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-3">
+                {images.map((img, i) => (
+                  <div key={i} className="relative group">
+                    <img src={img.preview} className="w-20 h-20 rounded-lg object-cover border-2 border-sand-dark" alt={`img-${i}`} />
+                    {i === 0 && <span className="absolute -top-1 -left-1 bg-gold text-navy text-[9px] font-bold px-1 rounded">Main</span>}
+                    <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
+                      <button type="button" onClick={() => openCrop(i)}
+                        className="text-white text-xs font-semibold bg-gold/80 px-2 py-0.5 rounded hover:bg-gold">
+                        Crop
+                      </button>
+                      <button type="button" onClick={() => removeImage(i)}
+                        className="text-white text-xs font-semibold bg-red-500/80 px-2 py-0.5 rounded hover:bg-red-600">
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
-            {preview && !cropSrc && (
-              <div className="mt-3 flex items-start gap-2">
-                <img src={preview} className="rounded-lg h-24 object-cover" alt="preview" />
-                <button type="button" onClick={() => { setPreview(null); setFile(null); if (fileRef.current) fileRef.current.value = ''; }}
-                  className="text-xs text-red-400 hover:text-red-600 font-semibold mt-1">Remove</button>
+            {cropSrc && (
+              <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+                <div className="bg-white rounded-xl w-full max-w-lg p-4">
+                  <p className="font-bold text-navy mb-3">Adjust Crop</p>
+                  <div className="relative w-full h-64 rounded-lg overflow-hidden bg-black">
+                    <Cropper image={cropSrc} crop={crop} zoom={zoom} aspect={16 / 9}
+                      onCropChange={setCrop} onZoomChange={setZoom} onCropComplete={onCropComplete} />
+                  </div>
+                  <div className="mt-3 flex items-center gap-3">
+                    <label className="text-xs text-gray-500 flex-shrink-0">Zoom</label>
+                    <input type="range" min={1} max={3} step={0.05} value={zoom}
+                      onChange={e => setZoom(Number(e.target.value))} className="flex-1 accent-gold" />
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <button type="button" onClick={applyCrop}
+                      className="flex-1 bg-gold text-navy font-semibold py-2 rounded-lg hover:bg-gold-dark transition-colors">
+                      Apply Crop
+                    </button>
+                    <button type="button" onClick={() => { setCropSrc(null); setCropIndex(null); }}
+                      className="flex-1 bg-gray-100 text-gray-600 font-semibold py-2 rounded-lg hover:bg-gray-200 transition-colors">
+                      Skip (Keep Original)
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -347,9 +377,36 @@ function ItemsTab() {
 
 function ItemRow({ item, onDelete, onRefresh }) {
   const [showExtra, setShowExtra] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: item.title || '',
+    purpose_impact: item.purpose_impact || '',
+    cost: item.cost || '',
+    category: item.category || '',
+    service_benefiting: item.service_benefiting || '',
+    tax_receipt: item.tax_receipt || 'possible',
+    item_status: item.item_status || 'available',
+    link: item.link || '',
+  });
+  const [saving, setSaving] = useState(false);
   const [imageFile, setImageFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const imgSrc = item.primary_image || item.image_url;
+
+  const ef = k => e => setEditForm(p => ({ ...p, [k]: e.target.value }));
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await updateItem(item.id, editForm);
+      setEditing(false);
+      onRefresh();
+    } catch (err) {
+      alert('Save failed: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function handleAddImage(e) {
     const f = e.target.files[0];
@@ -388,11 +445,50 @@ function ItemRow({ item, onDelete, onRefresh }) {
           <button onClick={() => setShowExtra(!showExtra)} className="text-blue-400 hover:text-blue-600 text-xs font-semibold">
             {showExtra ? 'Hide' : 'More'}
           </button>
+          <button onClick={() => setEditing(!editing)} className="text-gold hover:text-gold-dark text-xs font-semibold">
+            Edit
+          </button>
           <button onClick={() => onDelete(item.id)} className="text-red-400 hover:text-red-600 text-xs font-semibold">
             Delete
           </button>
         </div>
       </div>
+      {editing && (
+        <div className="mt-3 pt-3 border-t border-sand-dark flex flex-col gap-2">
+          <input className="input text-sm" placeholder="Title" value={editForm.title} onChange={ef('title')} />
+          <textarea className="input text-sm resize-none" rows={2} placeholder="Purpose / Impact" value={editForm.purpose_impact} onChange={ef('purpose_impact')} />
+          <div className="grid grid-cols-2 gap-2">
+            <input className="input text-sm" type="number" placeholder="Cost ($)" value={editForm.cost} onChange={ef('cost')} />
+            <input className="input text-sm" placeholder="Category" value={editForm.category} onChange={ef('category')} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <select className="input text-sm" value={editForm.tax_receipt} onChange={ef('tax_receipt')}>
+              <option value="yes">Tax Receipt: Yes</option>
+              <option value="possible">Tax Receipt: Possible</option>
+              <option value="no">Tax Receipt: No</option>
+            </select>
+            <select className="input text-sm" value={editForm.item_status} onChange={ef('item_status')}>
+              <option value="available">Available</option>
+              <option value="pending">Pending</option>
+              <option value="completed">Completed</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+          <input className="input text-sm" placeholder="Service Benefiting" value={editForm.service_benefiting} onChange={ef('service_benefiting')} />
+          <input className="input text-sm" type="url" placeholder="Reference Link (optional)" value={editForm.link} onChange={ef('link')} />
+          <div className="flex gap-2">
+            <button type="button" onClick={handleSave} disabled={saving}
+              className="flex-1 bg-gold text-navy text-sm font-semibold py-1.5 rounded-lg hover:bg-gold-dark transition-colors">
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+            <button type="button" onClick={() => setEditing(false)}
+              className="flex-1 bg-gray-100 text-gray-600 text-sm font-semibold py-1.5 rounded-lg hover:bg-gray-200 transition-colors">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {showExtra && (
         <div className="mt-3 pt-3 border-t border-sand-dark">
           <p className="text-xs text-gray-500 mb-2">Add another image:</p>

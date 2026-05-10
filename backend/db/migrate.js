@@ -53,7 +53,7 @@ module.exports = function runMigrations(db) {
     if (isOldSchema) {
       const rows = db.prepare('SELECT * FROM status_updates').all([]);
       try { db.exec('ROLLBACK'); } catch (_) {}
-      db.exec('BEGIN');
+      db.exec('BEGIN IMMEDIATE');
       try {
         db.exec('DROP TABLE IF EXISTS status_updates_v2');
         db.exec(`CREATE TABLE status_updates_v2 (

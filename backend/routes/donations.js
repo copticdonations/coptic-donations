@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
 const db = require('../db/database');
+const { sendMail } = require('../lib/mailer');
 
 function generateTrackingCode() {
   const year = new Date().getFullYear();
@@ -14,7 +15,7 @@ router.post('/', (req, res) => {
   if (!item_id || !donor_name) {
     return res.status(400).json({ error: 'item_id and donor_name are required' });
   }
-  const item = db.prepare('SELECT id FROM items WHERE id = ?').get([item_id]);
+  const item = db.prepare('SELECT id, title FROM items WHERE id = ?').get([item_id]);
   if (!item) return res.status(404).json({ error: 'Item not found' });
 
   let tracking_code;
@@ -25,8 +26,10 @@ router.post('/', (req, res) => {
   } while (db.prepare('SELECT id FROM donations WHERE tracking_code = ?').get([tracking_code]) && attempts < 10);
 
   let donation_id;
-  db.exec('BEGIN');
+
+  // Donation insert — its own immediate transaction
   try {
+    db.exec('BEGIN IMMEDIATE');
     const result = db.prepare(
       `INSERT INTO donations (item_id, donor_name, donor_email, donor_phone, tracking_code, tax_receipt_requested, anonymous)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -40,15 +43,43 @@ router.post('/', (req, res) => {
       anonymous ? 1 : 0,
     ]);
     donation_id = result.lastInsertRowid;
-    db.prepare(
-      'INSERT INTO status_updates (donation_id, status, message) VALUES (?, ?, ?)'
-    ).run([donation_id, 'commitment_received', 'Thank you for your commitment! We will be in touch as we move forward.']);
     db.exec('COMMIT');
   } catch (err) {
-    db.exec('ROLLBACK');
+    try { db.exec('ROLLBACK'); } catch (_) {}
     console.error('Donation insert failed:', err.message);
     return res.status(500).json({ error: 'Failed to record commitment' });
   }
+
+  // Status update — separate, non-fatal (table may have old schema)
+  try {
+    db.prepare(
+      'INSERT INTO status_updates (donation_id, status, message) VALUES (?, ?, ?)'
+    ).run([donation_id, 'commitment_received', 'Thank you for your commitment! We will be in touch as we move forward.']);
+  } catch (statusErr) {
+    console.warn('Status update failed (non-fatal):', statusErr.message);
+  }
+
+  // Email notification — non-fatal
+  sendMail({
+    subject: `New Commitment: ${item.title}`,
+    text: [
+      `New commitment received for: ${item.title}`,
+      `Tracking code: ${tracking_code}`,
+      `Name: ${donor_name}`,
+      `Email: ${donor_email || 'N/A'}`,
+      `Phone: ${donor_phone || 'N/A'}`,
+      `Tax receipt requested: ${tax_receipt_requested ? 'Yes' : 'No'}`,
+    ].join('\n'),
+    html: `
+      <h2>New Commitment Received</h2>
+      <p><strong>Item:</strong> ${item.title}</p>
+      <p><strong>Tracking Code:</strong> ${tracking_code}</p>
+      <p><strong>Name:</strong> ${donor_name}</p>
+      <p><strong>Email:</strong> ${donor_email ? `<a href="mailto:${donor_email}">${donor_email}</a>` : 'N/A'}</p>
+      <p><strong>Phone:</strong> ${donor_phone || 'N/A'}</p>
+      <p><strong>Tax Receipt Requested:</strong> ${tax_receipt_requested ? 'Yes' : 'No'}</p>
+    `,
+  }).catch(err => console.error('Commitment email failed:', err.message));
 
   res.status(201).json({ donation_id, tracking_code, message: 'Commitment recorded. Keep your tracking code safe.' });
 });

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, formatDate } from '../lib/utils';
 import { createDonation } from '../lib/api';
 import Spinner from '../components/ui/Spinner';
 
@@ -86,18 +86,24 @@ export default function CheckoutPage() {
           {pending.donor_email && <Row label="Email" value={pending.donor_email} />}
           {pending.donor_phone && <Row label="Phone" value={pending.donor_phone} />}
           <Row label="Item" value={pending.item_title} />
+          {pending.phase_label && <Row label="Phase" value={pending.phase_label} />}
+          {pending.need_by_date && (
+            <Row label="Needed By" value={<span className="text-red-600 font-bold">{formatDate(pending.need_by_date)}</span>} />
+          )}
           {pending.tax_receipt_requested && (
             <Row label="Tax Receipt" value={<span className="text-green-700 font-semibold">Requested</span>} />
-          )}
-          {pending.anonymous && (
-            <Row label="Anonymous" value={<span className="text-navy font-semibold">Yes</span>} />
           )}
         </dl>
       </div>
 
-      <div className="bg-gold-light border border-gold rounded-xl p-4 mb-6 text-sm text-navy-dark">
-        <strong>Important:</strong> By confirming, you commit to personally sourcing and delivering this item.
-        This is not a payment. We will contact you to coordinate delivery.
+      <div className="bg-gold-light border border-gold rounded-xl p-4 mb-4 text-sm text-navy-dark">
+        <strong>Important:</strong> By confirming, you commit to personally sourcing and providing this item.
+        This is not a payment. We will contact you to coordinate.
+      </div>
+
+      <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-sm text-red-800">
+        <strong>Please note:</strong> Once we contact you via email or phone, you have <strong>48 hours</strong> to respond.
+        If we do not hear back within 48 hours, we will unfortunately need to release this commitment and make it available again on the website.
       </div>
 
       {error && (

@@ -18,6 +18,8 @@ export async function getServerSideProps({ params }) {
 
 export default function ItemPage({ item }) {
   const router = useRouter();
+  const phases = item.phases && item.phases.length > 0 ? item.phases : [];
+  const [selectedPhase, setSelectedPhase] = useState(0);
   const [form, setForm] = useState({
     donor_name: '',
     donor_email: '',
@@ -44,12 +46,17 @@ export default function ItemPage({ item }) {
     if (!form.donor_email.trim()) return setError('Please enter your email address.');
     if (!form.donor_phone.trim()) return setError('Please enter your phone number.');
 
+    const needByDate = phases.length > 0
+      ? phases[selectedPhase]?.target_date
+      : item.need_by_date;
     sessionStorage.setItem('pendingDonation', JSON.stringify({
       item_id: item.id,
       item_title: item.title,
       item_image_url: images[0] || null,
       category: item.category,
       tax_receipt: item.tax_receipt,
+      need_by_date: needByDate || null,
+      phase_label: phases.length > 0 ? (phases[selectedPhase]?.phase_label || `Phase ${selectedPhase + 1}`) : null,
       ...form,
     }));
 
@@ -137,6 +144,31 @@ export default function ItemPage({ item }) {
               <p className="text-xs text-gray-600 mt-1">Tax receipt may be available — ask us</p>
             )}
           </div>
+
+          {phases.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm font-semibold text-navy mb-2">Select a phase to commit to:</p>
+              <div className="flex flex-col gap-2">
+                {phases.map((phase, i) => {
+                  const unitCost = item.cost || 0;
+                  const subtotal = unitCost * (phase.quantity || 1);
+                  return (
+                    <label key={i} className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${selectedPhase === i ? 'border-gold bg-gold-light' : 'border-sand-dark bg-white'}`}>
+                      <input type="radio" name="phase" checked={selectedPhase === i} onChange={() => setSelectedPhase(i)} className="mt-0.5 accent-gold" />
+                      <div className="flex-1">
+                        <p className="font-semibold text-navy text-sm">{phase.phase_label || `Phase ${i + 1}`}</p>
+                        <p className="text-xs text-gray-500">
+                          Qty: {phase.quantity}
+                          {phase.target_date && ` · Needed by ${formatDate(phase.target_date)}`}
+                          {unitCost > 0 && ` · Subtotal: ${formatCurrency(subtotal)}`}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="bg-white rounded-xl shadow-md p-6">
