@@ -48,4 +48,43 @@ for (const [table, col, def] of REQUIRED_COLUMNS) {
   }
 }
 
+// Always check and fix status_updates schema if it still has the old CHECK constraint.
+// The v2 migration may have failed due to lock contention — this retries it every startup.
+const STATUS_MAP = {
+  received: 'commitment_received', processing: 'commitment_received',
+  shipped: 'item_sent', delivered: 'delivered', installed: 'completed',
+};
+try {
+  const tableInfo = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='status_updates'").get([]);
+  if (tableInfo && tableInfo.sql && tableInfo.sql.includes("'received'")) {
+    console.log('Old status_updates schema detected — attempting fix...');
+    const rows = db.prepare('SELECT * FROM status_updates').all([]);
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.exec('DROP TABLE IF EXISTS status_updates_v2');
+      db.exec(`CREATE TABLE status_updates_v2 (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        donation_id INTEGER NOT NULL REFERENCES donations(id) ON DELETE CASCADE,
+        status TEXT NOT NULL CHECK(status IN ('commitment_received','item_sent','delivered','tax_receipt_sent','completed')),
+        message TEXT,
+        timestamp TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`);
+      const ins = db.prepare('INSERT INTO status_updates_v2 (id, donation_id, status, message, timestamp) VALUES (?, ?, ?, ?, ?)');
+      for (const r of rows) {
+        ins.run([r.id, r.donation_id, STATUS_MAP[r.status] || 'commitment_received', r.message, r.timestamp]);
+      }
+      db.exec('DROP TABLE status_updates');
+      db.exec('ALTER TABLE status_updates_v2 RENAME TO status_updates');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_status_donation ON status_updates(donation_id)');
+      db.exec('COMMIT');
+      console.log('status_updates schema fixed successfully');
+    } catch (e) {
+      try { db.exec('ROLLBACK'); } catch (_) {}
+      console.error('status_updates fix failed (will retry on next startup):', e.message);
+    }
+  }
+} catch (e) {
+  console.error('status_updates check failed:', e.message);
+}
+
 module.exports = db;
