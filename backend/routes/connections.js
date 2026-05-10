@@ -37,7 +37,7 @@ router.post('/', async (req, res) => {
       <p><strong>Offer type:</strong> ${offer_type || 'N/A'}</p>
       <p><strong>Description:</strong> ${description || 'N/A'}</p>
     `,
-  }).catch(err => console.error('Email send failed:', err.message));
+  }).catch(err => console.error('Email send failed:', err.message, err.code));
 
   res.json({ message: 'Thank you! We will be in touch.' });
 });
