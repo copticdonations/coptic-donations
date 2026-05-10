@@ -2,9 +2,10 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 const NAV_LINKS = [
-  { href: '/', label: 'Browse' },
+  { href: '/items', label: 'Browse' },
   { href: '/about', label: 'About' },
   { href: '/how-it-works', label: 'How It Works' },
+  { href: '/faq', label: 'FAQ' },
   { href: '/get-connected', label: 'Get Connected' },
   { href: '/tracking/lookup', label: 'Track' },
 ];
@@ -16,10 +17,10 @@ export default function Header() {
     <header className="bg-navy shadow-lg sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 group">
-          <CopticCross className="w-10 h-10 text-gold group-hover:scale-110 transition-transform" />
+          <img src="/logo.png" alt="Coptic Donations" className="w-10 h-10 rounded-full object-cover" />
           <div>
             <div className="text-gold font-serif text-lg font-bold leading-tight">Coptic Donations</div>
-            <div className="text-sand text-xs opacity-75">Glory to God in the Highest</div>
+            <div className="text-sand text-xs opacity-75">Malachi 3:10</div>
           </div>
         </Link>
 
@@ -63,15 +64,5 @@ function NavLink({ href, children, onClick }) {
     >
       {children}
     </Link>
-  );
-}
-
-function CopticCross({ className }) {
-  return (
-    <svg className={className} viewBox="0 0 100 100" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-      <rect x="42" y="10" width="16" height="80" rx="4" />
-      <rect x="10" y="35" width="80" height="16" rx="4" />
-      <circle cx="50" cy="43" r="12" fill="none" stroke="currentColor" strokeWidth="6" />
-    </svg>
   );
 }
