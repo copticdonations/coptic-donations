@@ -41,6 +41,8 @@ export default function ItemPage({ item }) {
     e.preventDefault();
     setError('');
     if (!form.donor_name.trim()) return setError('Please enter your name.');
+    if (!form.donor_email.trim()) return setError('Please enter your email address.');
+    if (!form.donor_phone.trim()) return setError('Please enter your phone number.');
 
     sessionStorage.setItem('pendingDonation', JSON.stringify({
       item_id: item.id,
@@ -165,7 +167,7 @@ export default function ItemPage({ item }) {
             </div>
 
             <div>
-              <label className="label">Email Address (optional)</label>
+              <label className="label">Email Address *</label>
               <input
                 className="input"
                 type="email"
@@ -173,14 +175,15 @@ export default function ItemPage({ item }) {
                 value={form.donor_email}
                 onChange={handleChange}
                 placeholder="your@email.com"
+                required
               />
               <p className="text-xs text-gray-400 mt-1">
-                We will send your tracking code here. We do not send junk mail.
+                We will send your tracking code here.
               </p>
             </div>
 
             <div>
-              <label className="label">Phone Number (optional)</label>
+              <label className="label">Phone Number *</label>
               <input
                 className="input"
                 type="tel"
@@ -188,10 +191,11 @@ export default function ItemPage({ item }) {
                 value={form.donor_phone}
                 onChange={handleChange}
                 placeholder="+1 (555) 000-0000"
+                required
               />
             </div>
 
-            {item.tax_receipt !== 'no' && (
+            {(item.tax_receipt === 'yes' || item.tax_receipt === 'possible') && (
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -209,18 +213,9 @@ export default function ItemPage({ item }) {
               </label>
             )}
 
-            <label className="flex items-start gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                name="anonymous"
-                checked={form.anonymous}
-                onChange={handleChange}
-                className="mt-0.5 accent-gold"
-              />
-              <span className="text-sm text-navy">
-                Keep my name anonymous on the public tracking page
-              </span>
-            </label>
+            <div className="bg-sand rounded-lg px-4 py-3 text-xs text-navy leading-relaxed">
+              All information submitted is kept strictly private and will only be accessible to the coordinator. Your details will not be shared with other donors.
+            </div>
 
             <button type="submit" disabled={submitting} className="btn-primary mt-2 w-full text-center">
               {submitting ? 'Processing...' : 'Commit to This Donation →'}

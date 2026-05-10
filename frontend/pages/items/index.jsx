@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { formatCurrency, formatDate } from '../../lib/utils';
 
@@ -115,9 +115,24 @@ export default function ItemsPage({ items }) {
 }
 
 function ItemCard({ item }) {
-  const imgSrc = item.primary_image || item.image_url;
+  const images = item.images && item.images.length > 0 ? item.images : (item.image_url ? [item.image_url] : []);
+  const [current, setCurrent] = useState(0);
+  const timerRef = useRef(null);
   const isUrgent = item.need_by_date &&
     new Date(item.need_by_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  useEffect(() => {
+    if (images.length <= 1) return;
+    timerRef.current = setInterval(() => setCurrent(i => (i + 1) % images.length), 5000);
+    return () => clearInterval(timerRef.current);
+  }, [images.length]);
+
+  function go(e, dir) {
+    e.preventDefault();
+    clearInterval(timerRef.current);
+    setCurrent(i => (i + dir + images.length) % images.length);
+    timerRef.current = setInterval(() => setCurrent(i => (i + 1) % images.length), 5000);
+  }
 
   return (
     <Link href={`/items/${item.id}`} className="card group block relative">
@@ -127,9 +142,9 @@ function ItemCard({ item }) {
         </div>
       )}
       <div className="relative aspect-video bg-sand-dark overflow-hidden">
-        {imgSrc ? (
+        {images.length > 0 ? (
           <img
-            src={imgSrc}
+            src={images[current]}
             alt={item.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
@@ -140,6 +155,23 @@ function ItemCard({ item }) {
           <span className="absolute top-2 left-2 bg-navy text-gold text-xs font-bold px-2 py-1 rounded">
             {item.category}
           </span>
+        )}
+        {images.length > 1 && (
+          <>
+            <button onClick={e => go(e, -1)}
+              className="absolute left-1 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full w-7 h-7 flex items-center justify-center text-lg leading-none transition-colors">
+              ‹
+            </button>
+            <button onClick={e => go(e, 1)}
+              className="absolute right-1 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full w-7 h-7 flex items-center justify-center text-lg leading-none transition-colors">
+              ›
+            </button>
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+              {images.map((_, i) => (
+                <span key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i === current ? 'bg-white' : 'bg-white/40'}`} />
+              ))}
+            </div>
+          </>
         )}
       </div>
       <div className="p-4">

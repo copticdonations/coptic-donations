@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import Cropper from 'react-easy-crop';
 import { formatDate, STATUS_LABELS, STATUS_COLORS } from '../../lib/utils';
 import { createItem, addItemImage, getAdminDonations, getAdminStats, deleteItem } from '../../lib/api';
 import Spinner from '../../components/ui/Spinner';
@@ -76,6 +77,10 @@ function ItemsTab() {
   const [phases, setPhases] = useState([{ label: '', quantity: '1', date: '' }]);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [cropSrc, setCropSrc] = useState(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
@@ -94,8 +99,29 @@ function ItemsTab() {
 
   function handleFile(e) {
     const f = e.target.files[0];
-    setFile(f);
-    if (f) setPreview(URL.createObjectURL(f));
+    if (!f) return;
+    setCropSrc(URL.createObjectURL(f));
+    setCrop({ x: 0, y: 0 });
+    setZoom(1);
+  }
+
+  const onCropComplete = useCallback((_, pixels) => setCroppedAreaPixels(pixels), []);
+
+  async function applyCrop() {
+    const canvas = document.createElement('canvas');
+    const img = new Image();
+    img.src = cropSrc;
+    await new Promise(r => { img.onload = r; });
+    const { x, y, width, height } = croppedAreaPixels;
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext('2d').drawImage(img, x, y, width, height, 0, 0, width, height);
+    canvas.toBlob(blob => {
+      const croppedFile = new File([blob], 'image.jpg', { type: 'image/jpeg' });
+      setFile(croppedFile);
+      setPreview(URL.createObjectURL(blob));
+      setCropSrc(null);
+    }, 'image/jpeg', 0.92);
   }
 
   async function handleSubmit(e) {
@@ -119,7 +145,7 @@ function ItemsTab() {
         service_benefiting: '', tax_receipt: 'possible', link: '',
         item_status: 'available' });
       setPhases([{ label: '', quantity: '1', date: '' }]);
-      setFile(null); setPreview(null);
+      setFile(null); setPreview(null); setCropSrc(null);
       if (fileRef.current) fileRef.current.value = '';
       loadItems();
     } catch (err) {
@@ -257,14 +283,45 @@ function ItemsTab() {
             </div>
           </div>
           <div>
-            <label className="label">Reference Link</label>
+            <label className="label">Reference Link <span className="text-gray-400 font-normal">(optional)</span></label>
             <input className="input" type="url" value={form.link} onChange={f('link')} placeholder="https://..." />
           </div>
           <div>
             <label className="label">Item Image</label>
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile}
               className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-gold-light file:text-navy file:font-semibold hover:file:bg-gold cursor-pointer" />
-            {preview && <img src={preview} className="mt-3 rounded-lg h-32 object-cover" alt="preview" />}
+            {cropSrc && (
+              <div className="mt-3">
+                <div className="relative w-full h-56 rounded-lg overflow-hidden bg-black">
+                  <Cropper
+                    image={cropSrc}
+                    crop={crop}
+                    zoom={zoom}
+                    aspect={16 / 9}
+                    onCropChange={setCrop}
+                    onZoomChange={setZoom}
+                    onCropComplete={onCropComplete}
+                  />
+                </div>
+                <div className="mt-2 flex items-center gap-3">
+                  <label className="text-xs text-gray-500 flex-shrink-0">Zoom</label>
+                  <input type="range" min={1} max={3} step={0.05} value={zoom}
+                    onChange={e => setZoom(Number(e.target.value))}
+                    className="flex-1 accent-gold" />
+                  <button type="button" onClick={applyCrop}
+                    className="text-sm bg-gold text-navy font-semibold px-4 py-1.5 rounded-lg hover:bg-gold-dark transition-colors flex-shrink-0">
+                    Apply Crop
+                  </button>
+                </div>
+              </div>
+            )}
+            {preview && !cropSrc && (
+              <div className="mt-3 flex items-start gap-2">
+                <img src={preview} className="rounded-lg h-24 object-cover" alt="preview" />
+                <button type="button" onClick={() => { setPreview(null); setFile(null); if (fileRef.current) fileRef.current.value = ''; }}
+                  className="text-xs text-red-400 hover:text-red-600 font-semibold mt-1">Remove</button>
+              </div>
+            )}
           </div>
           <button type="submit" disabled={submitting} className="btn-primary">
             {submitting ? 'Adding...' : 'Add Item'}
