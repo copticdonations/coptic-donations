@@ -27,9 +27,7 @@ router.post('/', (req, res) => {
 
   let donation_id;
 
-  // Donation insert — its own immediate transaction
   try {
-    db.exec('BEGIN IMMEDIATE');
     const result = db.prepare(
       `INSERT INTO donations (item_id, donor_name, donor_email, donor_phone, tracking_code, tax_receipt_requested, anonymous)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -43,11 +41,9 @@ router.post('/', (req, res) => {
       anonymous ? 1 : 0,
     ]);
     donation_id = result.lastInsertRowid;
-    db.exec('COMMIT');
   } catch (err) {
-    try { db.exec('ROLLBACK'); } catch (_) {}
     console.error('Donation insert failed:', err.message);
-    return res.status(500).json({ error: 'Failed to record commitment' });
+    return res.status(500).json({ error: `Failed to record commitment: ${err.message}` });
   }
 
   // Status update — separate, non-fatal (table may have old schema)
