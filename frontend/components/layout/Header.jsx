@@ -17,7 +17,7 @@ export default function Header() {
     <header className="bg-navy shadow-lg sticky top-0 z-50">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 group">
-          <img src="/logo.png" alt="Coptic Donations" className="w-10 h-10 rounded-full object-cover" />
+          <img src="/logo.png" alt="Coptic Donations" className="w-10 h-10 object-contain" />
           <div>
             <div className="text-gold font-serif text-lg font-bold leading-tight">Coptic Donations</div>
             <div className="text-sand text-xs opacity-75">Malachi 3:10</div>

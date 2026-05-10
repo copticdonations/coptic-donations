@@ -31,7 +31,7 @@ export default function HomePage({ items }) {
         <img
           src="/logo.png"
           alt="Coptic Donations"
-          className="w-44 h-44 mb-8 drop-shadow-xl rounded-full"
+          className="w-48 h-48 mb-8 drop-shadow-xl object-contain"
         />
         <p className="text-gold font-semibold text-xs uppercase tracking-[0.3em] mb-4">Malachi 3:10</p>
         <h1 className="text-5xl md:text-6xl font-serif font-bold text-navy mb-5 leading-tight">
