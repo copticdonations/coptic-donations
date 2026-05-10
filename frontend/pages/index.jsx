@@ -40,7 +40,7 @@ export default function HomePage({ items }) {
           <a href="#current-needs" className="btn-primary">View Current Needs</a>
           <Link href="/how-it-works" className="btn-secondary">How It Works</Link>
           <a
-            href="https://chat.whatsapp.com/"
+            href="https://chat.whatsapp.com/JSWL5wJyPdw05y7O5PY8ZI"
             target="_blank"
             rel="noopener noreferrer"
             className="btn-secondary"
