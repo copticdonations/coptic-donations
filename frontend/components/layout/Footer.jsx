@@ -30,13 +30,13 @@ export default function Footer() {
               </a>
             </p>
             <div className="flex gap-3 mt-4">
-              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook"
-                className="w-8 h-8 rounded-full border border-sand border-opacity-30 flex items-center justify-center hover:border-gold hover:text-gold transition-colors text-sm opacity-70">
-                f
-              </a>
               <a href="https://www.instagram.com/copticdonations/" target="_blank" rel="noopener noreferrer" aria-label="Instagram"
                 className="w-8 h-8 rounded-full border border-sand border-opacity-30 flex items-center justify-center hover:border-gold hover:text-gold transition-colors text-sm opacity-70">
                 IG
+              </a>
+              <a href="https://chat.whatsapp.com/JSWL5wJyPdw05y7O5PY8ZI" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp"
+                className="w-8 h-8 rounded-full border border-sand border-opacity-30 flex items-center justify-center hover:border-gold hover:text-gold transition-colors text-xs opacity-70">
+                WA
               </a>
             </div>
           </div>
