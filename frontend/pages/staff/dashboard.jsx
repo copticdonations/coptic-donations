@@ -5,7 +5,7 @@ import { formatDate, STATUS_LABELS, STATUS_COLORS } from '../../lib/utils';
 import { createItem, addItemImage, updateItem, deleteItem, getAdminDonations, getAdminStats,
   getItem, getItemImages, deleteItemImage, reorderItemImages,
   addItemPhase, updateItemPhase, deleteItemPhase,
-  saveConnectionNotes } from '../../lib/api';
+  saveConnectionNotes, deleteConnection } from '../../lib/api';
 import Spinner from '../../components/ui/Spinner';
 import Badge from '../../components/ui/Badge';
 import AdminGuard from '../../components/ui/AdminGuard';
@@ -755,12 +755,14 @@ function ConnectionsTab() {
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  function load() {
     fetch('/api/connections')
       .then(r => r.json())
       .then(setConnections)
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(() => { load(); }, []);
 
   if (loading) return <div className="flex justify-center py-10"><Spinner /></div>;
   if (connections.length === 0) return <p className="text-center text-gray-400 py-10">No connections yet.</p>;
@@ -768,16 +770,22 @@ function ConnectionsTab() {
   return (
     <div className="flex flex-col gap-3">
       {connections.map(c => (
-        <ConnectionCard key={c.id} connection={c} />
+        <ConnectionCard key={c.id} connection={c} onDelete={load} />
       ))}
     </div>
   );
 }
 
-function ConnectionCard({ connection: c }) {
+function ConnectionCard({ connection: c, onDelete }) {
   const [notes, setNotes] = useState(c.notes || '');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  async function handleDelete() {
+    if (!confirm('Delete this connection? This cannot be undone.')) return;
+    await deleteConnection(c.id);
+    onDelete();
+  }
 
   async function handleSaveNotes() {
     setSaving(true);
@@ -800,11 +808,12 @@ function ConnectionCard({ connection: c }) {
           <a href={`mailto:${c.email}`} className="text-sm text-gold hover:underline">{c.email}</a>
           {c.phone && <p className="text-sm text-gray-500 mt-0.5">{c.phone}</p>}
         </div>
-        <div className="text-right">
+        <div className="text-right flex flex-col items-end gap-1">
           {c.offer_type && (
             <span className="inline-block bg-sand-dark text-navy text-xs font-semibold px-2 py-1 rounded-full">{c.offer_type}</span>
           )}
-          <p className="text-xs text-gray-400 mt-1">{formatDate(c.created_at)}</p>
+          <p className="text-xs text-gray-400">{formatDate(c.created_at)}</p>
+          <button onClick={handleDelete} className="text-xs text-red-400 hover:text-red-600 font-semibold">Delete</button>
         </div>
       </div>
       {c.description && (

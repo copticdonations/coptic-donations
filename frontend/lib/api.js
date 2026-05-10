@@ -130,6 +130,10 @@ export async function submitConnection(data) {
   }));
 }
 
+export async function deleteConnection(id) {
+  return handleResponse(await fetch(`/api/connections/${id}`, { method: 'DELETE' }));
+}
+
 export async function saveConnectionNotes(id, notes) {
   return handleResponse(await fetch(`/api/connections/${id}/notes`, {
     method: 'PATCH',

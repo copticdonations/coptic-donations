@@ -43,6 +43,11 @@ router.post('/', async (req, res) => {
   res.json({ message: 'Thank you! We will be in touch.' });
 });
 
+router.delete('/:id', (req, res) => {
+  db.prepare('DELETE FROM connections WHERE id = ?').run([req.params.id]);
+  res.json({ message: 'Deleted' });
+});
+
 router.patch('/:id/notes', (req, res) => {
   const { notes } = req.body;
   db.prepare('UPDATE connections SET notes = ? WHERE id = ?').run([notes || null, req.params.id]);
