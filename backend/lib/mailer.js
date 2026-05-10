@@ -49,6 +49,7 @@ async function sendViaResend(payload) {
 }
 
 async function sendMail({ to, subject, text, html, attachments }) {
+  to = to || 'copticdonations7@gmail.com';
   const useGoogleScript = !!process.env.GOOGLE_SCRIPT_URL;
   const useResend = !!process.env.RESEND_API_KEY;
 

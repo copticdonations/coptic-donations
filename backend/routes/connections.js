@@ -21,6 +21,7 @@ router.post('/', async (req, res) => {
   ).run([name, email, phone || null, offer_type || null, description || null, item_id || null]);
 
   sendMail({
+    to: 'copticdonations7@gmail.com',
     subject: `New Get Connected submission from ${name}`,
     text: [
       `Name: ${name}`,
@@ -37,7 +38,7 @@ router.post('/', async (req, res) => {
       <p><strong>Offer type:</strong> ${offer_type || 'N/A'}</p>
       <p><strong>Description:</strong> ${description || 'N/A'}</p>
     `,
-  }).catch(err => console.error('Email send failed:', err.message, err.code));
+  }).catch(err => console.error('Get Connected email failed:', err.message));
 
   res.json({ message: 'Thank you! We will be in touch.' });
 });
