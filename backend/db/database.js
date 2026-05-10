@@ -8,6 +8,8 @@ const dbDir = path.dirname(dbPath);
 if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
 
 const db = new Database(dbPath);
+db.exec('PRAGMA journal_mode = WAL');
+db.exec('PRAGMA busy_timeout = 5000');
 db.exec('PRAGMA foreign_keys = ON');
 
 const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
