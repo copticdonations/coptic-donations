@@ -70,47 +70,61 @@ router.post('/', (req, res) => {
     created_at: new Date().toISOString(),
   };
 
-  generateCommitmentPdf(pdfData).then(async pdfBuffer => {
-    const attachment = [{
-      filename: `commitment-${tracking_code}.pdf`,
-      content: pdfBuffer.toString('base64'),
-    }];
+  generateCommitmentPdf(pdfData)
+    .then(async pdfBuffer => {
+      const attachment = [{
+        filename: `commitment-${tracking_code}.pdf`,
+        content: pdfBuffer.toString('base64'),
+      }];
 
-    // Email to coordinator
-    await sendMail({
-      to: 'copticdonations7@gmail.com',
-      subject: `New Commitment: ${item.title} — ${tracking_code}`,
-      html: `
-        <h2>New Commitment Received</h2>
-        <p><strong>Item:</strong> ${item.title}</p>
-        <p><strong>Tracking Code:</strong> ${tracking_code}</p>
-        <p><strong>Name:</strong> ${donor_name}</p>
-        <p><strong>Email:</strong> ${donor_email ? `<a href="mailto:${donor_email}">${donor_email}</a>` : 'N/A'}</p>
-        <p><strong>Phone:</strong> ${donor_phone || 'N/A'}</p>
-        <p><strong>Tax Receipt Requested:</strong> ${tax_receipt_requested ? 'Yes' : 'No'}</p>
-      `,
-      attachments: attachment,
-    });
+      // Email to coordinator — independent
+      try {
+        await sendMail({
+          to: 'copticdonations7@gmail.com',
+          subject: `New Commitment: ${item.title} — ${tracking_code}`,
+          html: `
+            <h2>New Commitment Received</h2>
+            <p><strong>Item:</strong> ${item.title}</p>
+            <p><strong>Tracking Code:</strong> ${tracking_code}</p>
+            <p><strong>Name:</strong> ${donor_name}</p>
+            <p><strong>Email:</strong> ${donor_email ? `<a href="mailto:${donor_email}">${donor_email}</a>` : 'N/A'}</p>
+            <p><strong>Phone:</strong> ${donor_phone || 'N/A'}</p>
+            <p><strong>Tax Receipt Requested:</strong> ${tax_receipt_requested ? 'Yes' : 'No'}</p>
+          `,
+          attachments: attachment,
+        });
+        console.log('Coordinator email sent');
+      } catch (err) {
+        console.error('Coordinator email failed:', err.message);
+      }
 
-    // Confirmation email to donor
-    if (donor_email) {
-      await sendMail({
-        to: donor_email,
-        subject: `Your Commitment Confirmation — ${tracking_code}`,
-        html: `
-          <p>Dear ${donor_name},</p>
-          <p>Thank you for your commitment to <strong>${item.title}</strong>.</p>
-          <p>Your tracking code is: <strong>${tracking_code}</strong></p>
-          <p>Please find your full commitment details attached as a PDF.</p>
-          <p><strong>Please note: once we contact you, you have 48 hours to respond or the commitment will be released.</strong></p>
-          <br/>
-          <p>May God bless you for your generosity.</p>
-          <p>— Coptic Donations</p>
-        `,
-        attachments: attachment,
-      });
-    }
-  }).catch(err => console.error('PDF/email failed:', err.message));
+      // Confirmation email to donor — independent
+      if (donor_email) {
+        try {
+          await sendMail({
+            to: donor_email,
+            subject: `Your Commitment Confirmation — ${tracking_code}`,
+            html: `
+              <p>Dear ${donor_name},</p>
+              <p>Thank you for your commitment to <strong>${item.title}</strong>.</p>
+              <p>Your tracking code is: <strong>${tracking_code}</strong></p>
+              <p>Please find your full commitment details attached as a PDF.</p>
+              <p><strong>Please note: once we contact you, you have 48 hours to respond or the commitment will be released.</strong></p>
+              <br/>
+              <p>May God bless you for your generosity.</p>
+              <p>— Coptic Donations</p>
+            `,
+            attachments: attachment,
+          });
+          console.log('Donor email sent to', donor_email);
+        } catch (err) {
+          console.error('Donor email failed:', err.message);
+        }
+      } else {
+        console.warn('No donor email provided — skipping donor confirmation');
+      }
+    })
+    .catch(err => console.error('PDF generation failed:', err.message));
 
   res.status(201).json({ donation_id, tracking_code, message: 'Commitment recorded. Keep your tracking code safe.' });
 });
