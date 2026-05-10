@@ -17,15 +17,15 @@ export default function Header() {
 
   return (
     <>
-      {/* Verse strip — sticky at top always */}
-      <div className="sticky top-0 z-50 bg-navy border-b border-navy-light px-4 py-2 text-center">
+      {/* Verse strip — scrolls away with the page */}
+      <div className="bg-navy border-b border-navy-light px-4 py-2 text-center">
         <p className="text-sand text-xs opacity-70 italic leading-relaxed max-w-4xl mx-auto">
           {VERSE}
         </p>
       </div>
 
-      {/* Nav bar — scrolls with the page */}
-      <header className="bg-navy shadow-lg">
+      {/* Nav bar — sticky at top always */}
+      <header className="bg-navy shadow-lg sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <Link href="/" className="group">
             <div className="text-gold font-serif text-lg font-bold leading-tight group-hover:text-gold-light transition-colors">
