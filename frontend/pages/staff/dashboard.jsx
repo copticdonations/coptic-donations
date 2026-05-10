@@ -6,7 +6,7 @@ import Spinner from '../../components/ui/Spinner';
 import Badge from '../../components/ui/Badge';
 import AdminGuard from '../../components/ui/AdminGuard';
 
-const TABS = ['items', 'donations', 'stats'];
+const TABS = ['items', 'donations', 'connections', 'stats'];
 
 export default function StaffDashboard() {
   const [tab, setTab] = useState('items');
@@ -58,6 +58,7 @@ export default function StaffDashboard() {
 
         {tab === 'items' && <ItemsTab />}
         {tab === 'donations' && <DonationsTab />}
+        {tab === 'connections' && <ConnectionsTab />}
         {tab === 'stats' && <StatsTab />}
       </div>
     </AdminGuard>
@@ -350,6 +351,51 @@ function DonationsTab() {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function ConnectionsTab() {
+  const [connections, setConnections] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/connections')
+      .then(r => r.json())
+      .then(setConnections)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="flex justify-center py-10"><Spinner /></div>;
+
+  if (connections.length === 0) return (
+    <p className="text-center text-gray-400 py-10">No connections yet.</p>
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      {connections.map(c => (
+        <div key={c.id} className="bg-white rounded-xl shadow-sm p-4">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <div>
+              <p className="font-bold text-navy">{c.name}</p>
+              <a href={`mailto:${c.email}`} className="text-sm text-gold hover:underline">{c.email}</a>
+              {c.phone && <p className="text-sm text-gray-500 mt-0.5">{c.phone}</p>}
+            </div>
+            <div className="text-right">
+              {c.offer_type && (
+                <span className="inline-block bg-sand-dark text-navy text-xs font-semibold px-2 py-1 rounded-full">
+                  {c.offer_type}
+                </span>
+              )}
+              <p className="text-xs text-gray-400 mt-1">{formatDate(c.created_at)}</p>
+            </div>
+          </div>
+          {c.description && (
+            <p className="text-sm text-gray-600 mt-3 pt-3 border-t border-sand-dark">{c.description}</p>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
