@@ -3,37 +3,38 @@ const { Resend } = require('resend');
 async function sendViaGoogleScript(payload) {
   const body = JSON.stringify(payload);
   const headers = { 'Content-Type': 'application/json' };
+  let url = process.env.GOOGLE_SCRIPT_URL;
 
-  // Step 1 — initial POST, capture the redirect without following it
-  const res1 = await fetch(process.env.GOOGLE_SCRIPT_URL, {
-    method: 'POST',
-    headers,
-    body,
-    redirect: 'manual',
-  });
-
-  let finalRes;
-  if (res1.status === 301 || res1.status === 302) {
-    // Step 2 — re-POST to the redirect URL so the body is preserved
-    const redirectUrl = res1.headers.get('location');
-    finalRes = await fetch(redirectUrl, {
+  // Follow up to 5 redirects manually, re-POSTing each time to preserve the body
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const res = await fetch(url, {
       method: 'POST',
       headers,
       body,
-      redirect: 'follow',
+      redirect: 'manual',
     });
-  } else {
-    finalRes = res1;
+
+    console.log(`Google Script attempt ${attempt + 1}: status=${res.status} url=${url.slice(0, 80)}`);
+
+    const isRedirect = res.status === 301 || res.status === 302 || res.status === 307 || res.status === 308;
+    if (isRedirect) {
+      url = res.headers.get('location');
+      if (!url) throw new Error('Google Script redirect missing Location header');
+      continue;
+    }
+
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(`Google Script returned unexpected response (status ${res.status}): ${text.slice(0, 300)}`);
+    }
+    if (!data.success) throw new Error(data.error || 'Google Script email failed');
+    return;
   }
 
-  const text = await finalRes.text();
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(`Google Script returned unexpected response: ${text.slice(0, 200)}`);
-  }
-  if (!data.success) throw new Error(data.error || 'Google Script email failed');
+  throw new Error('Google Script: too many redirects');
 }
 
 async function sendViaResend(payload) {
