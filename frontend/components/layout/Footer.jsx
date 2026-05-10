@@ -25,8 +25,8 @@ export default function Footer() {
           <div>
             <p className="text-gold font-semibold text-sm uppercase tracking-wider mb-3">Contact</p>
             <p className="text-sm opacity-80">
-              <a href="mailto:info@copticdonations.org" className="hover:text-gold transition-colors">
-                info@copticdonations.org
+              <a href="mailto:copticdonations7@gmail.com" className="hover:text-gold transition-colors">
+                copticdonations7@gmail.com
               </a>
             </p>
             <div className="flex gap-3 mt-4">

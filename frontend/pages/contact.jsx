@@ -86,8 +86,8 @@ export default function ContactPage() {
 
       <p className="text-center text-sm text-gray-500 mt-6">
         You can also email us at{' '}
-        <a href="mailto:info@copticdonations.org" className="text-gold hover:text-gold-dark font-semibold">
-          info@copticdonations.org
+        <a href="mailto:copticdonations7@gmail.com" className="text-gold hover:text-gold-dark font-semibold">
+          copticdonations7@gmail.com
         </a>
       </p>
     </div>
