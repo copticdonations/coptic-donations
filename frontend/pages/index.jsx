@@ -27,13 +27,12 @@ export default function HomePage({ items }) {
     <div>
 
       {/* ── Hero ── */}
-      <section className="min-h-[92vh] flex flex-col items-center justify-center text-center px-6 py-24 bg-[#f0e6ce]">
+      <section className="min-h-[92vh] flex flex-col items-center justify-center text-center px-6 py-24 bg-[#dfc99a]">
         <img
           src="/logo.png"
           alt="Coptic Donations"
           className="w-72 h-72 mb-8 object-contain"
         />
-        <p className="text-gold font-semibold text-xs uppercase tracking-[0.3em] mb-4">Malachi 3:10</p>
         <h1 className="text-5xl md:text-6xl font-serif font-bold text-navy mb-5 leading-tight">
           Coptic Donations
         </h1>
