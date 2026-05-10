@@ -12,13 +12,6 @@ export async function getServerSideProps() {
   }
 }
 
-const HOW_IT_WORKS_STEPS = [
-  { step: '1', title: 'Need is Verified', desc: 'A church, monastery, or ministry submits a need. We review and verify it before posting.' },
-  { step: '2', title: 'You Browse & Choose', desc: 'Browse current needs and choose what resonates with your heart and calling.' },
-  { step: '3', title: 'You Commit', desc: 'Fill out a simple commitment form. No payment is ever collected by us.' },
-  { step: '4', title: 'Direct Coordination', desc: 'You coordinate directly with the church or approved method. We keep you updated every step.' },
-];
-
 export default function HomePage({ items }) {
   const featured = items.filter(i => i.item_status === 'available').slice(0, 3);
   const completedCount = items.filter(i => i.item_status === 'completed').length;
@@ -68,18 +61,18 @@ export default function HomePage({ items }) {
             <p>
               Coptic Donations is a community-driven initiative dedicated to connecting generous hearts
               with the specific, verified needs of our Coptic churches, monasteries, and ministries.
-              Rather than general fundraising, every post represents one real, tangible need — a piece
-              of church equipment, a supply for homeless outreach, or a request from a monastery.
+              Rather than general fundraising, every post represents one real, specific need — a piece
+              of church equipment, a supply for homeless outreach, a service, or a request from a
+              monastery.
             </p>
             <p>
-              We believe in targeted giving: knowing exactly what you&apos;re providing, where it&apos;s going,
-              and the impact it will have. This is giving that is personal, purposeful, and deeply
-              rooted in our faith.
+              Our mission is to connect people with direct opportunities to support specific needs
+              within our Coptic churches, monasteries, and ministries.
             </p>
             <p>
-              This initiative exists alongside your regular giving — not instead of it. It is simply an
-              additional opportunity for those who feel called and are able to help with specific needs
-              that fall outside a normal church budget.
+              This initiative exists alongside your regular giving — not instead of it. It is simply
+              an additional opportunity for those who feel called and are able to help with specific
+              needs that fall outside a normal church budget.
             </p>
           </div>
           <div className="mt-10 bg-sand rounded-xl p-6 border-l-4 border-gold">
@@ -103,17 +96,21 @@ export default function HomePage({ items }) {
               Some needs simply fall outside what a church&apos;s regular budget can cover — homeless
               outreach supplies, specialized liturgical equipment, monastery requests, or materials
               for a growing ministry. These are real, ongoing needs that often go unmet simply because
-              they are not visible to the wider community.
+              they are not visible to the wider community. This is especially true for smaller churches
+              that are simply covering their basic costs like rent and utilities, or monasteries that
+              rely heavily on the generosity of visitors and donors.
             </p>
             <p>
-              Targeted donations also offer a unique advantage: through community connections,
-              Facebook Marketplace, eBay, and other channels, items can often be sourced at a fraction
-              of retail cost. Your contribution goes further, and the church receives exactly what it
-              needs.
+              Through community connections, Facebook Marketplace, eBay, and other channels, items
+              can often be sourced at a fraction of retail cost — meaning your contribution goes further
+              and the church receives exactly what it needs. A speaker system that retails for $400
+              online might be found locally for $200, allowing the church to receive what it needs
+              while a community member receives the blessing of giving.
             </p>
             <p>
-              By making these needs specific and transparent, we make it easier for community members
-              to give in a way that feels personal, meaningful, and truly impactful.
+              By bringing these needs forward in a specific and accessible way, we make it easier for
+              community members to participate in supporting the broader Coptic community — in a way
+              that feels personal, meaningful, and rooted in faith.
             </p>
           </div>
         </div>
@@ -121,25 +118,18 @@ export default function HomePage({ items }) {
 
       {/* ── How It Works Summary ── */}
       <section className="py-20 px-6 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-serif font-bold text-navy mb-3 text-center">How It Works</h2>
-          <p className="text-center text-gray-500 mb-14">
-            A simple, transparent process from need to fulfillment.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
-            {HOW_IT_WORKS_STEPS.map(({ step, title, desc }) => (
-              <div key={step} className="text-center">
-                <div className="w-14 h-14 rounded-full bg-navy text-gold font-serif font-bold text-2xl flex items-center justify-center mx-auto mb-5 shadow-md">
-                  {step}
-                </div>
-                <h3 className="font-bold text-navy mb-2 text-base">{title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed">{desc}</p>
-              </div>
-            ))}
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-3xl font-serif font-bold text-navy mb-8 text-center">How It Works</h2>
+          <div className="bg-sand rounded-2xl p-7 mb-6">
+            <p className="font-bold text-navy text-lg mb-2">Direct Coordination</p>
+            <p className="text-gray-600 leading-relaxed">
+              Each post includes clear instructions for how to give. Coptic Donations handles the
+              coordination so you don&apos;t have to figure out the logistics on your own.
+            </p>
           </div>
-          <div className="text-center mt-12">
+          <div className="text-center mt-8">
             <Link href="/how-it-works" className="btn-secondary">
-              Learn More About How It Works
+              See the Full Step-by-Step Process
             </Link>
           </div>
         </div>
