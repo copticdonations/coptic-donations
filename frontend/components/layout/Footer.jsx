@@ -34,7 +34,7 @@ export default function Footer() {
                 className="w-8 h-8 rounded-full border border-sand border-opacity-30 flex items-center justify-center hover:border-gold hover:text-gold transition-colors text-sm opacity-70">
                 f
               </a>
-              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram"
+              <a href="https://www.instagram.com/copticdonations/" target="_blank" rel="noopener noreferrer" aria-label="Instagram"
                 className="w-8 h-8 rounded-full border border-sand border-opacity-30 flex items-center justify-center hover:border-gold hover:text-gold transition-colors text-sm opacity-70">
                 IG
               </a>

@@ -133,9 +133,17 @@ function DonationDetail() {
           </dl>
           {donation.receipt_image_url && (
             <div className="mt-3 pt-3 border-t border-sand-dark">
-              <p className="text-xs text-gray-500 mb-1">Receipt:</p>
+              <p className="text-xs text-gray-500 mb-1 font-semibold">Receipt</p>
               <a href={donation.receipt_image_url} target="_blank" rel="noopener noreferrer"
-                className="text-gold text-xs font-semibold hover:text-gold-dark">View Receipt &#8599;</a>
+                className="text-gold text-xs font-semibold hover:text-gold-dark block">View Receipt &#8599;</a>
+              {donation.receipt_uploaded_at && (
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Uploaded: {new Date(donation.receipt_uploaded_at).toLocaleString('en-US', {
+                    year: 'numeric', month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit',
+                  })}
+                </p>
+              )}
             </div>
           )}
         </div>

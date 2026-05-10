@@ -59,13 +59,13 @@ router.get('/:id/images', (req, res) => {
 });
 
 router.post('/', uploadItem.single('image'), (req, res) => {
-  const { title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed } = req.body;
+  const { title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed, treasurer_email } = req.body;
   if (!title) return res.status(400).json({ error: 'Title is required' });
 
   const image_url = req.file ? `/uploads/items/${req.file.filename}` : null;
   const result = db.prepare(
-    `INSERT INTO items (title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed, image_url)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO items (title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed, image_url, treasurer_email)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run([
     title,
     purpose_impact || null,
@@ -79,6 +79,7 @@ router.post('/', uploadItem.single('image'), (req, res) => {
     item_status || 'available',
     parseInt(quantity_needed) || 1,
     image_url,
+    treasurer_email || null,
   ]);
 
   if (image_url) {
@@ -111,20 +112,23 @@ router.patch('/:id', (req, res) => {
   const item = db.prepare('SELECT id FROM items WHERE id = ?').get([req.params.id]);
   if (!item) return res.status(404).json({ error: 'Item not found' });
 
-  const { title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed } = req.body;
+  const { title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed, treasurer_email } = req.body;
   db.prepare(
     `UPDATE items SET title = COALESCE(?, title), purpose_impact = COALESCE(?, purpose_impact),
      cost = COALESCE(?, cost), cost_max = ?,
      category = COALESCE(?, category),
      service_benefiting = COALESCE(?, service_benefiting), tax_receipt = COALESCE(?, tax_receipt),
      link = COALESCE(?, link), need_by_date = COALESCE(?, need_by_date),
-     item_status = COALESCE(?, item_status), quantity_needed = COALESCE(?, quantity_needed)
+     item_status = COALESCE(?, item_status), quantity_needed = COALESCE(?, quantity_needed),
+     treasurer_email = ?
      WHERE id = ?`
   ).run([title || null, purpose_impact || null, cost ? parseFloat(cost) : null,
     cost_max ? parseFloat(cost_max) : null,
     category || null, service_benefiting || null, tax_receipt || null, link || null,
     need_by_date || null, item_status || null,
-    quantity_needed ? parseInt(quantity_needed) : null, req.params.id]);
+    quantity_needed ? parseInt(quantity_needed) : null,
+    treasurer_email !== undefined ? (treasurer_email || null) : undefined,
+    req.params.id]);
 
   res.json({ message: 'Item updated' });
 });

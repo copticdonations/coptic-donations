@@ -46,7 +46,11 @@ export default function ItemsPage({ items }) {
     <div className="max-w-6xl mx-auto px-4 py-10">
       <div className="text-center mb-10">
         <p className="text-gold font-semibold text-xs uppercase tracking-widest mb-2">Coptic Community</p>
-        <h1 className="text-4xl font-serif font-bold text-navy mb-3">Current Needs</h1>
+        <h1 className="text-4xl font-serif font-bold text-navy mb-3">
+          Church Needs {items.filter(i => i.item_status === 'available').length > 0 && (
+            <span className="text-2xl text-gold font-serif">— {items.filter(i => i.item_status === 'available').length}</span>
+          )}
+        </h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
           Each item below is a specific, verified need. You commit to providing it — we handle
           coordination and keep you updated every step of the way.

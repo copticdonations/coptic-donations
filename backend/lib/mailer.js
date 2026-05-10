@@ -1,5 +1,15 @@
 const { Resend } = require('resend');
 
+// attachments: array of { base64, mimeType, filename } OR legacy { content (base64), filename } for PDFs
+function normaliseAttachments(attachments) {
+  if (!attachments) return undefined;
+  return attachments.map(a => ({
+    base64: a.base64 || a.content,
+    mimeType: a.mimeType || 'application/pdf',
+    filename: a.filename,
+  }));
+}
+
 async function sendViaGoogleScript(payload) {
   const body = JSON.stringify(payload);
   const headers = { 'Content-Type': 'application/json' };
@@ -61,10 +71,8 @@ async function sendMail({ to, subject, text, html, attachments }) {
 
   if (useGoogleScript) {
     const payload = { to, subject, text: text || '', html };
-    if (attachments && attachments[0]) {
-      payload.pdfBase64 = attachments[0].content;
-      payload.pdfFilename = attachments[0].filename;
-    }
+    const norm = normaliseAttachments(attachments);
+    if (norm && norm.length) payload.attachments = norm;
     await sendViaGoogleScript(payload);
     return;
   }

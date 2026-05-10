@@ -75,7 +75,7 @@ function ItemsTab() {
   const [form, setForm] = useState({
     title: '', purpose_impact: '', cost: '', cost_max: '', category: '',
     service_benefiting: '', tax_receipt: 'possible', link: '',
-    item_status: 'available',
+    item_status: 'available', treasurer_email: '',
   });
   const [phases, setPhases] = useState([{ label: '', quantity: '1', date: '' }]);
   const [images, setImages] = useState([]); // [{file, preview}]
@@ -162,7 +162,7 @@ function ItemsTab() {
       setSuccess('Item added successfully!');
       setForm({ title: '', purpose_impact: '', cost: '', cost_max: '', category: '',
         service_benefiting: '', tax_receipt: 'possible', link: '',
-        item_status: 'available' });
+        item_status: 'available', treasurer_email: '' });
       setPhases([{ label: '', quantity: '1', date: '' }]);
       setImages([]); setCropSrc(null); setCropIndex(null);
       if (fileRef.current) fileRef.current.value = '';
@@ -309,6 +309,10 @@ function ItemsTab() {
             <input className="input" type="url" value={form.link} onChange={f('link')} placeholder="https://..." />
           </div>
           <div>
+            <label className="label">Church Treasurer Email <span className="text-gray-400 font-normal">(private — for tax receipts)</span></label>
+            <input className="input" type="email" value={form.treasurer_email} onChange={f('treasurer_email')} placeholder="treasurer@church.org" />
+          </div>
+          <div>
             <label className="label">Item Images <span className="text-gray-400 font-normal">(select multiple)</span></label>
             <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handleFiles}
               className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-gold-light file:text-navy file:font-semibold hover:file:bg-gold cursor-pointer" />
@@ -412,6 +416,7 @@ function ItemRow({ item, onDelete, onRefresh }) {
       item_status: fullItem.item_status || 'available',
       link: fullItem.link || '',
       quantity_needed: fullItem.quantity_needed || 1,
+      treasurer_email: fullItem.treasurer_email || '',
     });
     setEditImages(imagesData.map((img, i) => ({ ...img, sort_order: img.sort_order ?? i })));
     setEditPhases((fullItem.phases || []).map(p => ({ ...p })));
@@ -559,6 +564,10 @@ function ItemRow({ item, onDelete, onRefresh }) {
               <option value="no">Tax Receipt: No</option>
             </select>
             <input className="input text-sm" type="url" placeholder="Reference Link (optional)" value={editForm.link || ''} onChange={ef('link')} />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">Church Treasurer Email (private — for tax receipts)</label>
+            <input className="input text-sm" type="email" placeholder="treasurer@church.org" value={editForm.treasurer_email || ''} onChange={ef('treasurer_email')} />
           </div>
 
           {/* Phases */}

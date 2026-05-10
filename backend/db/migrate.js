@@ -109,6 +109,16 @@ module.exports = function runMigrations(db) {
     mark(db, 'v2_new_tables');
   }
 
+  if (!ran(db, 'v2_treasurer_email')) {
+    try { db.exec('ALTER TABLE items ADD COLUMN treasurer_email TEXT'); } catch (_) {}
+    mark(db, 'v2_treasurer_email');
+  }
+
+  if (!ran(db, 'v2_receipt_uploaded_at')) {
+    try { db.exec('ALTER TABLE donations ADD COLUMN receipt_uploaded_at TEXT'); } catch (_) {}
+    mark(db, 'v2_receipt_uploaded_at');
+  }
+
   if (!ran(db, 'v2_cost_range')) {
     try { db.exec('ALTER TABLE items ADD COLUMN cost_max REAL'); } catch (_) {}
     mark(db, 'v2_cost_range');
