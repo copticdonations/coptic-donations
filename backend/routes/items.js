@@ -89,7 +89,7 @@ router.post('/', uploadItem.single('image'), (req, res) => {
   const phases = req.body.phases ? JSON.parse(req.body.phases) : [];
   const insertPhase = db.prepare('INSERT INTO item_phases (item_id, phase_label, quantity, target_date) VALUES (?, ?, ?, ?)');
   for (const phase of phases) {
-    insertPhase.run([result.lastInsertRowid, phase.label || null, phase.quantity, phase.date || null]);
+    insertPhase.run([result.lastInsertRowid, phase.label || '', phase.quantity, phase.date || null]);
   }
 
   res.status(201).json({ id: result.lastInsertRowid, message: 'Item created successfully' });
@@ -153,7 +153,7 @@ router.post('/:id/phases', (req, res) => {
   const { label, quantity, date } = req.body;
   const result = db.prepare(
     'INSERT INTO item_phases (item_id, phase_label, quantity, target_date) VALUES (?, ?, ?, ?)'
-  ).run([req.params.id, label || null, parseInt(quantity) || 1, date || null]);
+  ).run([req.params.id, label || '', parseInt(quantity) || 1, date || null]);
   res.status(201).json({ id: result.lastInsertRowid });
 });
 
@@ -161,7 +161,7 @@ router.patch('/:id/phases/:phaseId', (req, res) => {
   const { label, quantity, date } = req.body;
   db.prepare(
     'UPDATE item_phases SET phase_label = ?, quantity = ?, target_date = ? WHERE id = ? AND item_id = ?'
-  ).run([label || null, parseInt(quantity) || 1, date || null, req.params.phaseId, req.params.id]);
+  ).run([label || '', parseInt(quantity) || 1, date || null, req.params.phaseId, req.params.id]);
   res.json({ message: 'Phase updated' });
 });
 
