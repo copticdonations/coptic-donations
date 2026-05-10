@@ -140,7 +140,12 @@ function ItemCard({ item }) {
 
   return (
     <Link href={`/items/${item.id}`} className="card group block relative">
-      {isUrgent && (
+      {item.fully_committed && (
+        <div className="absolute top-2 right-2 z-10 bg-gray-700 text-white text-xs font-bold px-2 py-0.5 rounded">
+          Fully Committed
+        </div>
+      )}
+      {!item.fully_committed && isUrgent && (
         <div className="absolute top-2 right-2 z-10 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded">
           Urgent
         </div>
@@ -209,9 +214,17 @@ function ItemCard({ item }) {
               <p className="text-xs text-gray-400 mt-0.5">Needed by {formatDate(item.need_by_date)}</p>
             )}
           </div>
-          <span className="text-xs bg-sand text-navy px-3 py-1 rounded-full border border-gold-light font-semibold">
-            Commit
-          </span>
+          {item.fully_committed ? (
+            <span className="text-xs bg-gray-200 text-gray-500 px-3 py-1 rounded-full font-semibold">
+              Committed
+            </span>
+          ) : (
+            <span className="text-xs bg-sand text-navy px-3 py-1 rounded-full border border-gold-light font-semibold">
+              {item.remaining_qty > 0 && item.remaining_qty < (item.quantity_needed || 1)
+                ? `${item.remaining_qty} left`
+                : 'Commit'}
+            </span>
+          )}
         </div>
       </div>
     </Link>

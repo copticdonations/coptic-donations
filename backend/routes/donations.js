@@ -27,8 +27,58 @@ router.post('/', (req, res) => {
   } while (db.prepare('SELECT id FROM donations WHERE tracking_code = ?').get([tracking_code]) && attempts < 10);
 
   let donation_id;
+  const cd = commitment_details
+    ? (typeof commitment_details === 'string' ? JSON.parse(commitment_details) : commitment_details)
+    : null;
 
   try {
+    db.exec('BEGIN IMMEDIATE');
+
+    // Validate availability and increment committed_qty atomically
+    if (cd && cd.selected_phases && cd.selected_phases.length > 0) {
+      for (const ph of cd.selected_phases) {
+        if (!ph.phase_id) continue;
+        const row = db.prepare('SELECT quantity, committed_qty, phase_label FROM item_phases WHERE id = ?').get([ph.phase_id]);
+        if (!row) continue;
+        const remaining = row.quantity - (row.committed_qty || 0);
+        if (ph.quantity > remaining) {
+          db.exec('ROLLBACK');
+          const label = row.phase_label || 'this phase';
+          return res.status(409).json({
+            error: remaining === 0
+              ? `"${label}" is fully committed. No units remaining.`
+              : `Only ${remaining} unit${remaining !== 1 ? 's' : ''} remaining for "${label}".`,
+          });
+        }
+      }
+      for (const ph of cd.selected_phases) {
+        if (ph.phase_id) {
+          db.prepare('UPDATE item_phases SET committed_qty = committed_qty + ? WHERE id = ?').run([ph.quantity, ph.phase_id]);
+        }
+      }
+    } else if (cd && cd.selected_qty) {
+      const row = db.prepare('SELECT quantity_needed, committed_qty FROM items WHERE id = ?').get([item_id]);
+      const remaining = (row.quantity_needed || 1) - (row.committed_qty || 0);
+      if (cd.selected_qty > remaining) {
+        db.exec('ROLLBACK');
+        return res.status(409).json({
+          error: remaining === 0
+            ? 'This item is fully committed. No units remaining.'
+            : `Only ${remaining} unit${remaining !== 1 ? 's' : ''} remaining.`,
+        });
+      }
+      db.prepare('UPDATE items SET committed_qty = committed_qty + ? WHERE id = ?').run([cd.selected_qty, item_id]);
+    } else {
+      // Single-unit item — check it isn't already committed
+      const row = db.prepare('SELECT quantity_needed, committed_qty FROM items WHERE id = ?').get([item_id]);
+      const remaining = (row.quantity_needed || 1) - (row.committed_qty || 0);
+      if (remaining <= 0) {
+        db.exec('ROLLBACK');
+        return res.status(409).json({ error: 'This item is fully committed.' });
+      }
+      db.prepare('UPDATE items SET committed_qty = committed_qty + 1 WHERE id = ?').run([item_id]);
+    }
+
     const result = db.prepare(
       `INSERT INTO donations (item_id, donor_name, donor_email, donor_phone, tracking_code, tax_receipt_requested, anonymous, amount, commitment_details)
        VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)`
@@ -40,10 +90,12 @@ router.post('/', (req, res) => {
       tracking_code,
       tax_receipt_requested ? 1 : 0,
       anonymous ? 1 : 0,
-      commitment_details ? JSON.stringify(commitment_details) : null,
+      cd ? JSON.stringify(cd) : null,
     ]);
     donation_id = result.lastInsertRowid;
+    db.exec('COMMIT');
   } catch (err) {
+    try { db.exec('ROLLBACK'); } catch (_) {}
     console.error('Donation insert failed:', err.message);
     return res.status(500).json({ error: `Failed to record commitment: ${err.message}` });
   }

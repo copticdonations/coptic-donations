@@ -86,6 +86,7 @@ export default function ItemPage({ item }) {
     const commitment_details = phases.length > 0
       ? {
           selected_phases: selectedPhasesList.map(ph => ({
+            phase_id: ph.id,
             phase_label: ph.phase_label || `Phase ${ph.index + 1}`,
             quantity: ph.qty,
             target_date: ph.target_date,
@@ -235,16 +236,23 @@ export default function ItemPage({ item }) {
           {/* No-phase quantity selector */}
           {phases.length === 0 && (item.quantity_needed || 1) > 1 && (
             <div className="mt-4">
-              <p className="text-sm font-semibold text-navy mb-2">How many units would you like to donate?</p>
-              <div className="flex flex-col gap-2">
-                {Array.from({ length: item.quantity_needed }, (_, i) => i + 1).map(n => (
-                  <label key={n} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${selectedQty === n ? 'border-gold bg-gold-light' : 'border-sand-dark bg-white'}`}>
-                    <input type="radio" name="qty" checked={selectedQty === n} onChange={() => setSelectedQty(n)} className="accent-gold" />
-                    <span className="font-semibold text-navy text-sm">{n} unit{n > 1 ? 's' : ''}</span>
-                    {unitCost > 0 && <span className="text-xs text-gray-500 ml-auto">{subtotalRange(n)}</span>}
-                  </label>
-                ))}
-              </div>
+              <p className="text-sm font-semibold text-navy mb-1">How many units would you like to donate?</p>
+              {item.remaining_qty === 0 ? (
+                <p className="text-sm text-red-500 font-semibold">This item is fully committed.</p>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-400 mb-2">{item.remaining_qty} of {item.quantity_needed} units remaining</p>
+                  <div className="flex flex-col gap-2">
+                    {Array.from({ length: item.remaining_qty }, (_, i) => i + 1).map(n => (
+                      <label key={n} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${selectedQty === n ? 'border-gold bg-gold-light' : 'border-sand-dark bg-white'}`}>
+                        <input type="radio" name="qty" checked={selectedQty === n} onChange={() => setSelectedQty(n)} className="accent-gold" />
+                        <span className="font-semibold text-navy text-sm">{n} unit{n > 1 ? 's' : ''}</span>
+                        {unitCost > 0 && <span className="text-xs text-gray-500 ml-auto">{subtotalRange(n)}</span>}
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -259,25 +267,29 @@ export default function ItemPage({ item }) {
                   const phSubtotal = subtotalRange(sel.qty);
                   return (
                     <div key={i} className={`rounded-xl border-2 p-4 transition-colors ${sel.checked ? 'border-gold bg-gold-light' : 'border-sand-dark bg-white'}`}>
-                      <label className="flex items-start gap-3 cursor-pointer">
-                        <input type="checkbox" checked={sel.checked}
-                          onChange={e => setPhaseSelections(ps => ({ ...ps, [i]: { ...ps[i], checked: e.target.checked } }))}
+                      <label className={`flex items-start gap-3 ${phase.remaining_qty === 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                        <input type="checkbox" checked={sel.checked} disabled={phase.remaining_qty === 0}
+                          onChange={e => setPhaseSelections(ps => ({ ...ps, [i]: { ...ps[i], checked: e.target.checked, qty: Math.min(ps[i].qty, phase.remaining_qty || 1) } }))}
                           className="mt-0.5 accent-gold" />
                         <div className="flex-1">
                           <p className="font-semibold text-navy text-sm">{phase.phase_label || `Phase ${i + 1}`}</p>
                           {phase.target_date && <p className="text-xs text-gray-500">Needed by {formatDate(phase.target_date)}</p>}
                           {phase.phase_notes && <p className="text-xs text-gray-400 mt-0.5 italic">{phase.phase_notes}</p>}
-                          <p className="text-xs text-gray-400">Up to {phase.quantity} unit{phase.quantity !== 1 ? 's' : ''} available</p>
+                          {phase.remaining_qty === 0 ? (
+                            <p className="text-xs text-red-500 font-semibold mt-0.5">Fully committed — no units remaining</p>
+                          ) : (
+                            <p className="text-xs text-gray-400">{phase.remaining_qty} of {phase.quantity} unit{phase.quantity !== 1 ? 's' : ''} remaining</p>
+                          )}
                         </div>
                       </label>
-                      {sel.checked && (
+                      {sel.checked && phase.remaining_qty > 0 && (
                         <div className="mt-3 flex items-center gap-3">
                           <label className="text-xs text-gray-500">How many units?</label>
                           <div className="flex items-center gap-2 ml-auto">
                             <button type="button" onClick={() => setPhaseSelections(ps => ({ ...ps, [i]: { ...ps[i], qty: Math.max(1, ps[i].qty - 1) } }))}
                               className="w-7 h-7 rounded-full bg-navy text-gold font-bold flex items-center justify-center">−</button>
                             <span className="font-bold text-navy w-6 text-center">{sel.qty}</span>
-                            <button type="button" onClick={() => setPhaseSelections(ps => ({ ...ps, [i]: { ...ps[i], qty: Math.min(phase.quantity, ps[i].qty + 1) } }))}
+                            <button type="button" onClick={() => setPhaseSelections(ps => ({ ...ps, [i]: { ...ps[i], qty: Math.min(phase.remaining_qty, ps[i].qty + 1) } }))}
                               className="w-7 h-7 rounded-full bg-navy text-gold font-bold flex items-center justify-center">+</button>
                           </div>
                           {unitCost > 0 && (
@@ -379,8 +391,8 @@ export default function ItemPage({ item }) {
               All information submitted is kept strictly private and will only be accessible to the coordinator. Your details will not be shared with other donors.
             </div>
 
-            <button type="submit" disabled={submitting} className="btn-primary mt-2 w-full text-center">
-              {submitting ? 'Processing...' : 'Commit to This Donation →'}
+            <button type="submit" disabled={submitting || item.fully_committed} className="btn-primary mt-2 w-full text-center disabled:opacity-50 disabled:cursor-not-allowed">
+              {item.fully_committed ? 'Fully Committed' : submitting ? 'Processing...' : 'Commit to This Donation →'}
             </button>
           </form>
         </div>

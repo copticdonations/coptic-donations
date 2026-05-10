@@ -230,9 +230,13 @@ function ItemCard({ item }) {
         <p className="text-sm text-gray-600 mt-1 line-clamp-2">{item.purpose_impact || item.description}</p>
         <div className="mt-3 flex items-center justify-between">
           <span className="text-gold font-bold text-lg">{formatCurrency(item.cost || item.suggested_amount)}</span>
-          <span className="text-xs bg-sand text-navy px-3 py-1 rounded-full border border-gold-light font-semibold">
-            Commit
-          </span>
+          {item.fully_committed ? (
+            <span className="text-xs bg-gray-200 text-gray-500 px-3 py-1 rounded-full font-semibold">Committed</span>
+          ) : (
+            <span className="text-xs bg-sand text-navy px-3 py-1 rounded-full border border-gold-light font-semibold">
+              {item.remaining_qty > 0 && item.remaining_qty < (item.quantity_needed || 1) ? `${item.remaining_qty} left` : 'Commit'}
+            </span>
+          )}
         </div>
       </div>
     </Link>

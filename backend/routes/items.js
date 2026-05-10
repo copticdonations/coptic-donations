@@ -29,9 +29,26 @@ router.get('/', (req, res) => {
     imageMap[img.item_id].push(img.image_url);
   }
 
+  // Fetch phase committed totals for all items in one query
+  const phaseCommitted = db.prepare(
+    `SELECT item_id, SUM(quantity) as total_qty, SUM(committed_qty) as total_committed
+     FROM item_phases GROUP BY item_id`
+  ).all([]);
+  const phaseMap = {};
+  for (const p of phaseCommitted) phaseMap[p.item_id] = p;
+
   for (const item of items) {
     item.images = imageMap[item.id] || [];
     item.primary_image = item.images[0] || item.image_url || null;
+    const ph = phaseMap[item.id];
+    if (ph) {
+      item.total_qty = ph.total_qty || 0;
+      item.total_committed = ph.total_committed || 0;
+      item.remaining_qty = Math.max(0, item.total_qty - item.total_committed);
+    } else {
+      item.remaining_qty = Math.max(0, (item.quantity_needed || 1) - (item.committed_qty || 0));
+    }
+    item.fully_committed = item.remaining_qty === 0 && (item.quantity_needed > 0 || ph);
   }
 
   res.json({ items });
@@ -45,8 +62,13 @@ router.get('/:id', (req, res) => {
   item.images = images.map(i => i.image_url);
   item.primary_image = item.images[0] || item.image_url || null;
 
-  const phases = db.prepare('SELECT id, phase_label, quantity, target_date, phase_notes FROM item_phases WHERE item_id = ? ORDER BY id ASC').all([item.id]);
-  item.phases = phases;
+  const phases = db.prepare('SELECT id, phase_label, quantity, committed_qty, target_date, phase_notes FROM item_phases WHERE item_id = ? ORDER BY id ASC').all([item.id]);
+  item.phases = phases.map(p => ({ ...p, remaining_qty: Math.max(0, p.quantity - (p.committed_qty || 0)) }));
+  // Item-level remaining (for non-phase items)
+  item.remaining_qty = item.phases.length > 0
+    ? item.phases.reduce((s, p) => s + p.remaining_qty, 0)
+    : Math.max(0, (item.quantity_needed || 1) - (item.committed_qty || 0));
+  item.fully_committed = item.remaining_qty === 0;
 
   res.json({ item });
 });
