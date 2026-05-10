@@ -27,7 +27,7 @@ export default function HomePage({ items }) {
     <div>
 
       {/* ── Hero ── */}
-      <section className="min-h-[92vh] flex flex-col items-center justify-center text-center px-6 py-24 bg-[#dfc99a]">
+      <section className="min-h-[92vh] flex flex-col items-center justify-center text-center px-6 py-24" style={{ background: 'radial-gradient(ellipse at center, #f0dcbb 0%, #eddaba 100%)' }}>
         <img
           src="/logo.png"
           alt="Coptic Donations"
