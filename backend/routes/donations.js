@@ -29,8 +29,8 @@ router.post('/', (req, res) => {
 
   try {
     const result = db.prepare(
-      `INSERT INTO donations (item_id, donor_name, donor_email, donor_phone, tracking_code, tax_receipt_requested, anonymous)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO donations (item_id, donor_name, donor_email, donor_phone, tracking_code, tax_receipt_requested, anonymous, amount)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 0)`
     ).run([
       item_id,
       donor_name,
