@@ -1,13 +1,38 @@
 const { Resend } = require('resend');
 
 async function sendViaGoogleScript(payload) {
-  const res = await fetch(process.env.GOOGLE_SCRIPT_URL, {
+  const body = JSON.stringify(payload);
+  const headers = { 'Content-Type': 'application/json' };
+
+  // Step 1 — initial POST, capture the redirect without following it
+  const res1 = await fetch(process.env.GOOGLE_SCRIPT_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    redirect: 'follow',
+    headers,
+    body,
+    redirect: 'manual',
   });
-  const data = await res.json();
+
+  let finalRes;
+  if (res1.status === 301 || res1.status === 302) {
+    // Step 2 — re-POST to the redirect URL so the body is preserved
+    const redirectUrl = res1.headers.get('location');
+    finalRes = await fetch(redirectUrl, {
+      method: 'POST',
+      headers,
+      body,
+      redirect: 'follow',
+    });
+  } else {
+    finalRes = res1;
+  }
+
+  const text = await finalRes.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Google Script returned unexpected response: ${text.slice(0, 200)}`);
+  }
   if (!data.success) throw new Error(data.error || 'Google Script email failed');
 }
 
