@@ -84,6 +84,12 @@ router.post('/', uploadItem.single('image'), (req, res) => {
     db.prepare('INSERT INTO item_images (item_id, image_url, sort_order) VALUES (?, ?, 0)').run([result.lastInsertRowid, image_url]);
   }
 
+  const phases = req.body.phases ? JSON.parse(req.body.phases) : [];
+  const insertPhase = db.prepare('INSERT INTO item_phases (item_id, phase_label, quantity, target_date) VALUES (?, ?, ?, ?)');
+  for (const phase of phases) {
+    insertPhase.run([result.lastInsertRowid, phase.label || null, phase.quantity, phase.date || null]);
+  }
+
   res.status(201).json({ id: result.lastInsertRowid, message: 'Item created successfully' });
 });
 

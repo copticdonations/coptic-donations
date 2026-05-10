@@ -71,8 +71,9 @@ function ItemsTab() {
   const [form, setForm] = useState({
     title: '', purpose_impact: '', cost: '', category: '',
     service_benefiting: '', tax_receipt: 'possible', link: '',
-    need_by_date: '', item_status: 'available', quantity_needed: '1',
+    item_status: 'available',
   });
+  const [phases, setPhases] = useState([{ label: '', quantity: '1', date: '' }]);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [submitting, setSubmitting] = useState(false);
@@ -106,11 +107,18 @@ function ItemsTab() {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
       if (file) fd.append('image', file);
+      const validPhases = phases.filter(p => parseInt(p.quantity) > 0);
+      if (validPhases.length) {
+        fd.append('phases', JSON.stringify(validPhases));
+        const totalQty = validPhases.reduce((s, p) => s + (parseInt(p.quantity) || 0), 0);
+        fd.append('quantity_needed', totalQty);
+      }
       await createItem(fd);
       setSuccess('Item added successfully!');
       setForm({ title: '', purpose_impact: '', cost: '', category: '',
         service_benefiting: '', tax_receipt: 'possible', link: '',
-        need_by_date: '', item_status: 'available', quantity_needed: '1' });
+        item_status: 'available' });
+      setPhases([{ label: '', quantity: '1', date: '' }]);
       setFile(null); setPreview(null);
       if (fileRef.current) fileRef.current.value = '';
       loadItems();
@@ -144,15 +152,9 @@ function ItemsTab() {
             <label className="label">Purpose / Impact</label>
             <textarea className="input resize-none" rows={3} value={form.purpose_impact} onChange={f('purpose_impact')} placeholder="Describe what this item does and its significance..." />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Estimated Cost ($)</label>
-              <input className="input" type="number" min="0" step="0.01" value={form.cost} onChange={f('cost')} placeholder="e.g. 150" />
-            </div>
-            <div>
-              <label className="label">Qty Needed</label>
-              <input className="input" type="number" min="1" value={form.quantity_needed} onChange={f('quantity_needed')} />
-            </div>
+          <div>
+            <label className="label">Cost per Unit ($)</label>
+            <input className="input" type="number" min="0" step="0.01" value={form.cost} onChange={f('cost')} placeholder="e.g. 150" />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -187,8 +189,72 @@ function ItemsTab() {
             </div>
           </div>
           <div>
-            <label className="label">Need By Date</label>
-            <input className="input" type="date" value={form.need_by_date} onChange={f('need_by_date')} />
+            <label className="label">Quantity Phases</label>
+            <div className="flex flex-col gap-2">
+              {phases.map((phase, i) => {
+                const unitCost = parseFloat(form.cost) || 0;
+                const qty = parseInt(phase.quantity) || 0;
+                const subtotal = unitCost * qty;
+                return (
+                  <div key={i} className="bg-sand rounded-lg p-3 flex flex-col gap-2">
+                    <div className="flex gap-2 items-center">
+                      <input
+                        className="input flex-1 text-sm"
+                        placeholder={`Phase ${i + 1} label (optional)`}
+                        value={phase.label}
+                        onChange={e => setPhases(ps => ps.map((p, idx) => idx === i ? { ...p, label: e.target.value } : p))}
+                      />
+                      {phases.length > 1 && (
+                        <button type="button" onClick={() => setPhases(ps => ps.filter((_, idx) => idx !== i))}
+                          className="text-red-400 hover:text-red-600 text-xs font-semibold flex-shrink-0">
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Quantity</label>
+                        <input
+                          className="input text-sm"
+                          type="number" min="1"
+                          value={phase.quantity}
+                          onChange={e => setPhases(ps => ps.map((p, idx) => idx === i ? { ...p, quantity: e.target.value } : p))}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">Needed By</label>
+                        <input
+                          className="input text-sm"
+                          type="date"
+                          value={phase.date}
+                          onChange={e => setPhases(ps => ps.map((p, idx) => idx === i ? { ...p, date: e.target.value } : p))}
+                        />
+                      </div>
+                    </div>
+                    {subtotal > 0 && (
+                      <p className="text-xs text-right text-navy font-semibold">
+                        Subtotal: ${subtotal.toFixed(2)}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+              <button type="button" onClick={() => setPhases(ps => [...ps, { label: '', quantity: '1', date: '' }])}
+                className="text-sm text-gold hover:text-gold-dark font-semibold text-left">
+                + Add Phase
+              </button>
+              {(() => {
+                const unitCost = parseFloat(form.cost) || 0;
+                const total = phases.reduce((s, p) => s + (parseInt(p.quantity) || 0) * unitCost, 0);
+                const totalQty = phases.reduce((s, p) => s + (parseInt(p.quantity) || 0), 0);
+                return total > 0 ? (
+                  <div className="flex justify-between text-sm font-bold text-navy border-t border-sand-dark pt-2 mt-1">
+                    <span>Total Qty: {totalQty}</span>
+                    <span>Total: ${total.toFixed(2)}</span>
+                  </div>
+                ) : null;
+              })()}
+            </div>
           </div>
           <div>
             <label className="label">Reference Link</label>
