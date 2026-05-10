@@ -1,8 +1,7 @@
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-const NAV_LINKS = [
-  { href: '/items', label: 'Browse' },
+const STATIC_LINKS = [
   { href: '/about', label: 'About' },
   { href: '/how-it-works', label: 'How It Works' },
   { href: '/faq', label: 'FAQ' },
@@ -14,6 +13,17 @@ const VERSE = '"Bring all the tithes into the storehouse, That there may be food
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [itemCount, setItemCount] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/items')
+      .then(r => r.json())
+      .then(data => setItemCount((data.items || []).filter(i => i.item_status === 'available').length))
+      .catch(() => {});
+  }, []);
+
+  const browseLabel = itemCount !== null ? `Church Needs — ${itemCount}` : 'Church Needs';
+  const NAV_LINKS = [{ href: '/items', label: browseLabel }, ...STATIC_LINKS];
 
   return (
     <>

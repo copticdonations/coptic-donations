@@ -141,32 +141,42 @@ function ItemCard({ item }) {
           Urgent
         </div>
       )}
-      <div className="relative aspect-video bg-sand-dark overflow-hidden">
+      <div className="relative aspect-video bg-sand overflow-hidden">
         {images.length > 0 ? (
-          <img
-            src={images[current]}
-            alt={item.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
+          images.map((src, i) => (
+            <img
+              key={i}
+              src={src}
+              alt={item.title}
+              className="absolute inset-0 w-full h-full object-cover"
+              style={{
+                transform: `translateX(${(i - current) * 100}%)`,
+                transition: 'transform 500ms ease-in-out',
+              }}
+            />
+          ))
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gold opacity-30 text-5xl font-serif">✝</div>
+          <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+            <img src="/logo.png" alt="" className="w-10 h-10 object-contain opacity-40" />
+            <p className="text-navy text-xs font-semibold text-center px-3 line-clamp-2 opacity-60">{item.title}</p>
+          </div>
         )}
         {item.category && (
-          <span className="absolute top-2 left-2 bg-navy text-gold text-xs font-bold px-2 py-1 rounded">
+          <span className="absolute top-2 left-2 z-10 bg-navy text-gold text-xs font-bold px-2 py-1 rounded">
             {item.category}
           </span>
         )}
         {images.length > 1 && (
           <>
             <button onClick={e => go(e, -1)}
-              className="absolute left-1 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full w-7 h-7 flex items-center justify-center text-lg leading-none transition-colors">
+              className="absolute left-1 top-1/2 -translate-y-1/2 z-10 bg-black/40 hover:bg-black/60 text-white rounded-full w-7 h-7 flex items-center justify-center text-lg leading-none transition-colors">
               ‹
             </button>
             <button onClick={e => go(e, 1)}
-              className="absolute right-1 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full w-7 h-7 flex items-center justify-center text-lg leading-none transition-colors">
+              className="absolute right-1 top-1/2 -translate-y-1/2 z-10 bg-black/40 hover:bg-black/60 text-white rounded-full w-7 h-7 flex items-center justify-center text-lg leading-none transition-colors">
               ›
             </button>
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex gap-1">
               {images.map((_, i) => (
                 <span key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i === current ? 'bg-white' : 'bg-white/40'}`} />
               ))}
@@ -185,6 +195,12 @@ function ItemCard({ item }) {
         <div className="mt-3 flex items-center justify-between">
           <div>
             <span className="text-gold font-bold text-lg">{formatCurrency(item.cost || item.suggested_amount)}</span>
+            {(item.quantity_needed > 1 || (item.phases && item.phases.length > 0)) && (
+              <span className="text-xs text-gray-400 ml-1">/ unit</span>
+            )}
+            {item.quantity_needed > 1 && !(item.phases && item.phases.length > 0) && (
+              <p className="text-xs text-gray-400 mt-0.5">× {item.quantity_needed} needed</p>
+            )}
             {item.need_by_date && (
               <p className="text-xs text-gray-400 mt-0.5">Needed by {formatDate(item.need_by_date)}</p>
             )}

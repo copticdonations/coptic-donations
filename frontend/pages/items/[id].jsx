@@ -20,6 +20,7 @@ export default function ItemPage({ item }) {
   const router = useRouter();
   const phases = item.phases && item.phases.length > 0 ? item.phases : [];
   const [selectedPhase, setSelectedPhase] = useState(0);
+  const [selectedQty, setSelectedQty] = useState(1);
   const [form, setForm] = useState({
     donor_name: '',
     donor_email: '',
@@ -57,6 +58,7 @@ export default function ItemPage({ item }) {
       tax_receipt: item.tax_receipt,
       need_by_date: needByDate || null,
       phase_label: phases.length > 0 ? (phases[selectedPhase]?.phase_label || `Phase ${selectedPhase + 1}`) : null,
+      selected_qty: phases.length === 0 && (item.quantity_needed || 1) > 1 ? selectedQty : null,
       ...form,
     }));
 
@@ -76,14 +78,21 @@ export default function ItemPage({ item }) {
       <div className="grid md:grid-cols-2 gap-10">
         <div>
           <div
-            className="rounded-xl overflow-hidden shadow-lg aspect-video bg-sand-dark cursor-zoom-in"
+            className="rounded-xl overflow-hidden shadow-lg bg-sand-dark cursor-zoom-in flex items-center justify-center"
+            style={{ minHeight: '200px', maxHeight: '480px' }}
             onClick={() => images[activeImg] && setLightboxSrc(images[activeImg])}
           >
             {images[activeImg] ? (
-              <img src={images[activeImg]} alt={item.title} className="w-full h-full object-cover" />
+              <img
+                src={images[activeImg]}
+                alt={item.title}
+                className="w-full object-contain"
+                style={{ maxHeight: '480px' }}
+              />
             ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <PlaceholderIcon />
+              <div className="w-full h-48 flex flex-col items-center justify-center gap-3">
+                <img src="/logo.png" alt="" className="w-16 h-16 object-contain opacity-40" />
+                <p className="text-navy text-sm font-semibold opacity-50 text-center px-4">{item.title}</p>
               </div>
             )}
           </div>
@@ -136,14 +145,45 @@ export default function ItemPage({ item }) {
 
           <div className="mt-6 bg-gold-light rounded-xl p-4 border border-gold">
             <p className="text-sm text-navy-dark font-semibold">Estimated Cost</p>
-            <p className="text-3xl font-bold text-navy">{formatCurrency(item.cost || item.suggested_amount)}</p>
+            <div className="flex items-baseline gap-2">
+              <p className="text-3xl font-bold text-navy">{formatCurrency(item.cost || item.suggested_amount)}</p>
+              {(phases.length > 0 || (item.quantity_needed || 1) > 1) && (
+                <span className="text-sm text-gray-500">per unit</span>
+              )}
+            </div>
+            {item.quantity_needed > 1 && phases.length === 0 && (
+              <p className="text-xs text-navy-dark mt-0.5">{item.quantity_needed} units needed</p>
+            )}
             {item.tax_receipt === 'yes' && (
               <p className="text-xs text-green-700 font-semibold mt-1">✓ Tax receipt available</p>
             )}
             {item.tax_receipt === 'possible' && (
               <p className="text-xs text-gray-600 mt-1">Tax receipt may be available — ask us</p>
             )}
+            {item.tax_receipt === 'no' && (
+              <p className="text-xs text-red-600 font-semibold mt-1">✗ Tax receipts are not available for this item</p>
+            )}
           </div>
+
+          {phases.length === 0 && (item.quantity_needed || 1) > 1 && (
+            <div className="mt-4">
+              <p className="text-sm font-semibold text-navy mb-2">How many units would you like to donate?</p>
+              <div className="flex flex-col gap-2">
+                {Array.from({ length: item.quantity_needed }, (_, i) => i + 1).map(n => {
+                  const subtotal = (item.cost || 0) * n;
+                  return (
+                    <label key={n} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${selectedQty === n ? 'border-gold bg-gold-light' : 'border-sand-dark bg-white'}`}>
+                      <input type="radio" name="qty" checked={selectedQty === n} onChange={() => setSelectedQty(n)} className="accent-gold" />
+                      <span className="font-semibold text-navy text-sm">{n} unit{n > 1 ? 's' : ''}</span>
+                      {subtotal > 0 && (
+                        <span className="text-xs text-gray-500 ml-auto">{formatCurrency(subtotal)}</span>
+                      )}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {phases.length > 0 && (
             <div className="mt-4">
