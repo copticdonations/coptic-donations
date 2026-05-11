@@ -84,7 +84,7 @@ router.post('/', uploadItem.single('image'), (req, res) => {
   const { title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed, treasurer_email, payment_method, payment_instructions } = req.body;
   if (!title) return res.status(400).json({ error: 'Title is required' });
 
-  const image_url = req.file ? `/uploads/items/${req.file.filename}` : null;
+  const image_url = req.file ? `/uploads/items/${req.file.filename}` : (req.body.image_url || null);
   const result = db.prepare(
     `INSERT INTO items (title, purpose_impact, cost, cost_max, category, service_benefiting, tax_receipt, link, need_by_date, item_status, quantity_needed, image_url, treasurer_email, payment_method, payment_instructions)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -122,9 +122,16 @@ router.post('/', uploadItem.single('image'), (req, res) => {
 router.post('/:id/images', uploadItem.single('image'), (req, res) => {
   const item = db.prepare('SELECT id FROM items WHERE id = ?').get([req.params.id]);
   if (!item) return res.status(404).json({ error: 'Item not found' });
-  if (!req.file) return res.status(400).json({ error: 'No image provided' });
 
-  const image_url = `/uploads/items/${req.file.filename}`;
+  let image_url;
+  if (req.file) {
+    image_url = `/uploads/items/${req.file.filename}`;
+  } else if (req.body.image_url) {
+    image_url = req.body.image_url;
+  } else {
+    return res.status(400).json({ error: 'No image provided' });
+  }
+
   const maxOrder = db.prepare('SELECT COALESCE(MAX(sort_order), -1) as m FROM item_images WHERE item_id = ?').get([req.params.id]);
   const sort_order = maxOrder.m + 1;
 
