@@ -8,9 +8,14 @@ export default function FounderPage() {
       </Link>
 
       <div className="text-center mb-10">
-        <p className="text-gold font-semibold text-sm uppercase tracking-widest mb-2">Leadership</p>
-        <h1 className="text-4xl font-bold text-navy mb-3">Fr. Mercurius</h1>
-        <p className="text-lg text-gray-600">Founder &amp; Visionary</p>
+        <p className="text-gold font-semibold text-sm uppercase tracking-widest mb-4">Leadership</p>
+        <img
+          src="/founder.jpg"
+          alt="Mercurius Yasa"
+          className="w-40 h-40 rounded-full object-cover object-top shadow-xl mx-auto mb-5"
+        />
+        <h1 className="text-4xl font-bold text-navy mb-2">Mercurius Yasa</h1>
+        <p className="text-lg text-gray-600">Founder &amp; Coordinator</p>
       </div>
 
       <div className="bg-white rounded-2xl shadow-md p-8 mb-8">

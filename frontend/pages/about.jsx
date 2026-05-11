@@ -48,6 +48,30 @@ export default function AboutPage() {
         </div>
       </div>
 
+      {/* Meet the Founder */}
+      <div className="bg-white rounded-2xl shadow-md p-8 mb-8">
+        <h2 className="text-2xl font-bold text-navy mb-6">Meet the Founder</h2>
+        <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
+          <img
+            src="/founder.jpg"
+            alt="Founder"
+            className="w-36 h-36 rounded-full object-cover object-top shadow-md flex-shrink-0"
+          />
+          <div>
+            <p className="text-xl font-bold text-navy mb-0.5">Mercurius Yasa</p>
+            <p className="text-gold font-semibold text-sm mb-3">Founder &amp; Coordinator</p>
+            <p className="text-gray-600 leading-relaxed text-sm mb-4">
+              Mercurius founded Coptic Donations with a simple vision: that every member of our Coptic
+              community should have the opportunity to make a tangible, lasting contribution to the life
+              of the church — knowing exactly where their generosity goes and seeing the impact it creates.
+            </p>
+            <Link href="/founder" className="text-gold hover:text-gold-dark text-sm font-semibold">
+              Read more →
+            </Link>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-navy rounded-2xl p-8 text-center text-white">
         <p className="text-gold font-serif text-xl font-bold mb-3">Ready to make a difference?</p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
