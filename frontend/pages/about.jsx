@@ -16,16 +16,54 @@ export default function AboutPage() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-md p-8 mb-8">
-        <h2 className="text-2xl font-bold text-navy mb-4">What We Do</h2>
-        <p className="text-gray-700 leading-relaxed mb-4">
-          Coptic Donations is a platform that makes it easy for community members to directly provide specific items
-          needed by the church. Rather than collecting money, we connect donors with exact needs — so you know exactly
-          where your generosity goes.
-        </p>
-        <p className="text-gray-700 leading-relaxed">
-          Whether it is a processional cross, an icon for the sanctuary, or pews for the nave — every item listed has
-          a real need, a real cost, and a real impact on our community&apos;s worship and service.
-        </p>
+        <h2 className="text-2xl font-bold text-navy mb-4">What Is Coptic Donations?</h2>
+        <div className="space-y-4 text-gray-700 leading-relaxed">
+          <p>
+            Coptic Donations is a community-driven initiative dedicated to connecting generous hearts with the
+            specific, verified needs of our Coptic churches, monasteries, and ministries. Rather than general
+            fundraising, every post represents one real, specific need — a piece of church equipment, a supply
+            for homeless outreach, a service, or a request from a monastery.
+          </p>
+          <p>
+            Our mission is to connect people with direct opportunities to support specific needs within our
+            Coptic churches, monasteries, and ministries.
+          </p>
+          <p>
+            This initiative exists alongside your regular giving — not instead of it. It is simply an additional
+            opportunity for those who feel called and are able to help with specific needs that fall outside a
+            normal church budget.
+          </p>
+        </div>
+        <div className="mt-5 bg-sand rounded-xl p-4 border-l-4 border-gold">
+          <p className="text-navy text-sm leading-relaxed">
+            <strong>Please note:</strong> This initiative is not meant to replace regular tithing or giving to
+            your local church. Please always consult your spiritual father and prioritize your local church first.
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-md p-8 mb-8">
+        <h2 className="text-2xl font-bold text-navy mb-4">Why Targeted Donations?</h2>
+        <div className="space-y-4 text-gray-700 leading-relaxed">
+          <p>
+            Some needs simply fall outside what a church&apos;s regular budget can cover — homeless outreach
+            supplies, specialized liturgical equipment, monastery requests, or materials for a growing ministry.
+            These are real, ongoing needs that often go unmet simply because they are not visible to the wider
+            community. This is especially true for smaller churches that are simply covering their basic costs
+            like rent and utilities, or monasteries that rely heavily on the generosity of visitors and donors.
+          </p>
+          <p>
+            Through community connections, Facebook Marketplace, eBay, and other channels, items can often be
+            sourced at a fraction of retail cost — meaning your contribution goes further and the church receives
+            exactly what it needs. A speaker system that retails for $400 online might be found locally for $200,
+            allowing the church to receive what it needs while a community member receives the blessing of giving.
+          </p>
+          <p>
+            By bringing these needs forward in a specific and accessible way, we make it easier for community
+            members to participate in supporting the broader Coptic community — in a way that feels personal,
+            meaningful, and rooted in faith.
+          </p>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-md p-8 mb-8">
