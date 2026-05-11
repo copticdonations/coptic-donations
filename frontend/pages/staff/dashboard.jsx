@@ -17,7 +17,6 @@ function ImageUploadBox({ onFiles }) {
   const fileRef = useRef();
   const [driveUrl, setDriveUrl] = useState('');
   const [driveError, setDriveError] = useState('');
-  const [driveLoading, setDriveLoading] = useState(false);
 
   function handleDrop(e) {
     e.preventDefault();
@@ -37,25 +36,15 @@ function ImageUploadBox({ onFiles }) {
     if (imageItems.length) onFiles(imageItems.map(i => i.getAsFile()));
   }
 
-  async function handleDriveLoad() {
+  function handleDriveLoad() {
     setDriveError('');
     const match = driveUrl.match(/\/d\/([\w-]+)/);
     if (!match) return setDriveError('Invalid Google Drive link. Copy the sharing URL from Drive.');
     const fileId = match[1];
-    setDriveLoading(true);
-    try {
-      const directUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
-      const r = await fetch(directUrl);
-      if (!r.ok) throw new Error();
-      const blob = await r.blob();
-      const file = new File([blob], `drive-${fileId}.jpg`, { type: blob.type || 'image/jpeg' });
-      onFiles([file]);
-      setDriveUrl('');
-    } catch {
-      setDriveError('Could not load image. Make sure the file is set to "Anyone with the link can view" in Google Drive.');
-    } finally {
-      setDriveLoading(false);
-    }
+    const thumbnailUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+    // Pass as a URL-based pseudo-file object
+    onFiles([{ isDriveUrl: true, url: thumbnailUrl, name: `drive-${fileId}` }]);
+    setDriveUrl('');
   }
 
   return (
@@ -87,9 +76,8 @@ function ImageUploadBox({ onFiles }) {
           {driveError && <p className="text-xs text-red-500 mt-1">{driveError}</p>}
         </div>
         <button type="button" onClick={e => { e.stopPropagation(); handleDriveLoad(); }}
-          disabled={driveLoading}
           className="btn-secondary text-xs px-3 py-2 whitespace-nowrap flex-shrink-0">
-          {driveLoading ? 'Loading...' : 'Load'}
+          Load
         </button>
       </div>
     </div>
@@ -174,8 +162,21 @@ function ItemsTab() {
   useEffect(() => { loadItems(); }, []);
 
   function handleNewFiles(files) {
-    const newImgs = files.map(f => ({ file: f, preview: URL.createObjectURL(f) }));
+    const newImgs = files.map(f => {
+      if (f.isDriveUrl) return { file: null, preview: f.url, isDriveUrl: true, driveUrl: f.url, name: f.name };
+      return { file: f, preview: URL.createObjectURL(f) };
+    });
     setImages(prev => [...prev, ...newImgs]);
+  }
+
+  function moveNewImage(i, dir) {
+    setImages(imgs => {
+      const next = [...imgs];
+      const swap = i + dir;
+      if (swap < 0 || swap >= next.length) return imgs;
+      [next[i], next[swap]] = [next[swap], next[i]];
+      return next;
+    });
   }
 
   function openCrop(i) {
@@ -215,7 +216,10 @@ function ItemsTab() {
     try {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => { if (v) fd.append(k, v); });
-      if (images.length > 0) fd.append('image', images[0].file);
+      if (images.length > 0) {
+        if (images[0].isDriveUrl) fd.append('image_url', images[0].driveUrl);
+        else fd.append('image', images[0].file);
+      }
       const validPhases = phases.filter(p => parseInt(p.quantity) > 0);
       if (validPhases.length) {
         fd.append('phases', JSON.stringify(validPhases));
@@ -224,7 +228,8 @@ function ItemsTab() {
       const result = await createItem(fd);
       for (let i = 1; i < images.length; i++) {
         const fd2 = new FormData();
-        fd2.append('image', images[i].file);
+        if (images[i].isDriveUrl) fd2.append('image_url', images[i].driveUrl);
+        else fd2.append('image', images[i].file);
         await addItemImage(result.id, fd2);
       }
       setSuccess('Item added successfully!');
@@ -391,17 +396,21 @@ function ItemsTab() {
             <label className="label">Item Images</label>
             <ImageUploadBox onFiles={handleNewFiles} />
             {images.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-3">
+              <div className="mt-3 flex flex-col gap-2">
+                <p className="text-xs text-gray-400">Use arrows to reorder • First image is the main photo</p>
                 {images.map((img, i) => (
-                  <div key={i} className="relative group">
-                    <img src={img.preview} className="w-20 h-20 rounded-lg object-cover border-2 border-sand-dark" alt="" />
-                    {i === 0 && <span className="absolute -top-1 -left-1 bg-gold text-navy text-[9px] font-bold px-1 rounded">Main</span>}
-                    <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
-                      <button type="button" onClick={() => openCrop(i)}
-                        className="text-white text-xs font-semibold bg-gold/80 px-2 py-0.5 rounded hover:bg-gold">Crop</button>
-                      <button type="button" onClick={() => removeImage(i)}
-                        className="text-white text-xs font-semibold bg-red-500/80 px-2 py-0.5 rounded hover:bg-red-600">Remove</button>
+                  <div key={i} className="flex items-center gap-2 bg-sand rounded-lg p-2">
+                    <img src={img.preview} className="w-12 h-12 rounded object-cover flex-shrink-0 border border-sand-dark" alt="" />
+                    {i === 0 && <span className="text-[10px] font-bold text-gold bg-navy px-1.5 py-0.5 rounded flex-shrink-0">Main</span>}
+                    <p className="text-xs text-gray-500 truncate flex-1">{img.isDriveUrl ? '📎 Google Drive image' : img.file?.name || 'image'}</p>
+                    <div className="flex flex-col gap-0.5">
+                      <button type="button" onClick={() => moveNewImage(i, -1)} disabled={i === 0} className="text-navy hover:text-gold disabled:opacity-20 text-xs font-bold">▲</button>
+                      <button type="button" onClick={() => moveNewImage(i, 1)} disabled={i === images.length - 1} className="text-navy hover:text-gold disabled:opacity-20 text-xs font-bold">▼</button>
                     </div>
+                    {!img.isDriveUrl && (
+                      <button type="button" onClick={() => openCrop(i)} className="text-gold hover:text-gold-dark text-xs font-semibold flex-shrink-0">Crop</button>
+                    )}
+                    <button type="button" onClick={() => removeImage(i)} className="text-red-400 hover:text-red-600 text-xs font-semibold flex-shrink-0">Remove</button>
                   </div>
                 ))}
               </div>
