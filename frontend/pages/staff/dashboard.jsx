@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Cropper from 'react-easy-crop';
-import { formatDate, STATUS_LABELS, STATUS_COLORS } from '../../lib/utils';
+import { formatDate, STATUS_LABELS } from '../../lib/utils';
 import { createItem, addItemImage, updateItem, deleteItem, getAdminDonations, getAdminStats,
   getItem, getItemImages, deleteItemImage, reorderItemImages,
   addItemPhase, updateItemPhase, deleteItemPhase,
@@ -11,6 +11,90 @@ import Badge from '../../components/ui/Badge';
 import AdminGuard from '../../components/ui/AdminGuard';
 
 const TABS = ['items', 'donations', 'connections', 'stats'];
+
+// ── IMAGE UPLOAD BOX ─────────────────────────────────────────────────────────
+function ImageUploadBox({ onFiles }) {
+  const fileRef = useRef();
+  const [driveUrl, setDriveUrl] = useState('');
+  const [driveError, setDriveError] = useState('');
+  const [driveLoading, setDriveLoading] = useState(false);
+
+  function handleDrop(e) {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+    if (files.length) onFiles(files);
+  }
+
+  function handleFileInput(e) {
+    const files = Array.from(e.target.files);
+    if (files.length) onFiles(files);
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
+  function handlePaste(e) {
+    const items = Array.from(e.clipboardData.items);
+    const imageItems = items.filter(i => i.type.startsWith('image/'));
+    if (imageItems.length) onFiles(imageItems.map(i => i.getAsFile()));
+  }
+
+  async function handleDriveLoad() {
+    setDriveError('');
+    const match = driveUrl.match(/\/d\/([\w-]+)/);
+    if (!match) return setDriveError('Invalid Google Drive link. Copy the sharing URL from Drive.');
+    const fileId = match[1];
+    setDriveLoading(true);
+    try {
+      const directUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+      const r = await fetch(directUrl);
+      if (!r.ok) throw new Error();
+      const blob = await r.blob();
+      const file = new File([blob], `drive-${fileId}.jpg`, { type: blob.type || 'image/jpeg' });
+      onFiles([file]);
+      setDriveUrl('');
+    } catch {
+      setDriveError('Could not load image. Make sure the file is set to "Anyone with the link can view" in Google Drive.');
+    } finally {
+      setDriveLoading(false);
+    }
+  }
+
+  return (
+    <div onPaste={handlePaste} tabIndex={0} className="outline-none">
+      <div
+        onDragOver={e => e.preventDefault()}
+        onDrop={handleDrop}
+        onClick={() => fileRef.current.click()}
+        className="border-2 border-dashed border-gold rounded-xl p-5 text-center cursor-pointer hover:bg-gold-light transition-colors"
+      >
+        <div className="flex flex-col items-center gap-1.5 text-gray-400 pointer-events-none">
+          <span className="text-3xl">📷</span>
+          <p className="text-sm font-semibold text-navy">Drag & drop images here</p>
+          <p className="text-xs">click to browse • or paste with Ctrl+V / ⌘+V</p>
+          <p className="text-xs text-gray-300">JPG, PNG, WEBP</p>
+        </div>
+        <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handleFileInput} className="hidden" />
+      </div>
+      <div className="mt-2 flex gap-2 items-start">
+        <div className="flex-1">
+          <input
+            className="input text-sm"
+            placeholder="Or paste a Google Drive sharing link..."
+            value={driveUrl}
+            onChange={e => setDriveUrl(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), handleDriveLoad())}
+            onClick={e => e.stopPropagation()}
+          />
+          {driveError && <p className="text-xs text-red-500 mt-1">{driveError}</p>}
+        </div>
+        <button type="button" onClick={e => { e.stopPropagation(); handleDriveLoad(); }}
+          disabled={driveLoading}
+          className="btn-secondary text-xs px-3 py-2 whitespace-nowrap flex-shrink-0">
+          {driveLoading ? 'Loading...' : 'Load'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function StaffDashboard() {
   const [tab, setTab] = useState('items');
@@ -38,28 +122,17 @@ export default function StaffDashboard() {
           </div>
           <div className="flex gap-3">
             <Link href="/" className="btn-secondary text-sm px-4 py-2">View Site</Link>
-            <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-navy transition-colors">
-              Sign Out
-            </button>
+            <button onClick={handleLogout} className="text-sm text-gray-400 hover:text-navy transition-colors">Sign Out</button>
           </div>
         </div>
-
         <div className="flex gap-2 border-b border-gray-200 mb-8">
           {TABS.map(t => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-5 py-2.5 text-sm font-semibold capitalize border-b-2 -mb-px transition-colors ${
-                tab === t
-                  ? 'border-gold text-navy'
-                  : 'border-transparent text-gray-400 hover:text-navy'
-              }`}
-            >
+            <button key={t} onClick={() => setTab(t)}
+              className={`px-5 py-2.5 text-sm font-semibold capitalize border-b-2 -mb-px transition-colors ${tab === t ? 'border-gold text-navy' : 'border-transparent text-gray-400 hover:text-navy'}`}>
               {t}
             </button>
           ))}
         </div>
-
         {tab === 'items' && <ItemsTab />}
         {tab === 'donations' && <DonationsTab />}
         {tab === 'connections' && <ConnectionsTab />}
@@ -79,7 +152,7 @@ function ItemsTab() {
     payment_method: '', payment_instructions: '',
   });
   const [phases, setPhases] = useState([{ label: '', quantity: '1', date: '', notes: '' }]);
-  const [images, setImages] = useState([]); // [{file, preview}]
+  const [images, setImages] = useState([]);
   const [cropIndex, setCropIndex] = useState(null);
   const [cropSrc, setCropSrc] = useState(null);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -88,7 +161,6 @@ function ItemsTab() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
-  const fileRef = useRef();
 
   async function loadItems() {
     try {
@@ -101,11 +173,9 @@ function ItemsTab() {
 
   useEffect(() => { loadItems(); }, []);
 
-  function handleFiles(e) {
-    const files = Array.from(e.target.files);
+  function handleNewFiles(files) {
     const newImgs = files.map(f => ({ file: f, preview: URL.createObjectURL(f) }));
     setImages(prev => [...prev, ...newImgs]);
-    if (fileRef.current) fileRef.current.value = '';
   }
 
   function openCrop(i) {
@@ -123,15 +193,13 @@ function ItemsTab() {
     img.src = cropSrc;
     await new Promise(r => { img.onload = r; });
     const { x, y, width, height } = croppedAreaPixels;
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = width; canvas.height = height;
     canvas.getContext('2d').drawImage(img, x, y, width, height, 0, 0, width, height);
     canvas.toBlob(blob => {
       const croppedFile = new File([blob], 'image.jpg', { type: 'image/jpeg' });
       const croppedPreview = URL.createObjectURL(blob);
       setImages(prev => prev.map((img, i) => i === cropIndex ? { file: croppedFile, preview: croppedPreview } : img));
-      setCropSrc(null);
-      setCropIndex(null);
+      setCropSrc(null); setCropIndex(null);
     }, 'image/jpeg', 0.92);
   }
 
@@ -151,8 +219,7 @@ function ItemsTab() {
       const validPhases = phases.filter(p => parseInt(p.quantity) > 0);
       if (validPhases.length) {
         fd.append('phases', JSON.stringify(validPhases));
-        const totalQty = validPhases.reduce((s, p) => s + (parseInt(p.quantity) || 0), 0);
-        fd.append('quantity_needed', totalQty);
+        fd.append('quantity_needed', validPhases.reduce((s, p) => s + (parseInt(p.quantity) || 0), 0));
       }
       const result = await createItem(fd);
       for (let i = 1; i < images.length; i++) {
@@ -163,11 +230,9 @@ function ItemsTab() {
       setSuccess('Item added successfully!');
       setForm({ title: '', purpose_impact: '', cost: '', cost_max: '', category: '',
         service_benefiting: '', tax_receipt: 'possible', link: '',
-        item_status: 'available', treasurer_email: '',
-        payment_method: '', payment_instructions: '' });
+        item_status: 'available', treasurer_email: '', payment_method: '', payment_instructions: '' });
       setPhases([{ label: '', quantity: '1', date: '', notes: '' }]);
       setImages([]); setCropSrc(null); setCropIndex(null);
-      if (fileRef.current) fileRef.current.value = '';
       loadItems();
     } catch (err) {
       setError(err.message);
@@ -180,16 +245,14 @@ function ItemsTab() {
     if (!confirm('Delete this item? This cannot be undone.')) return;
     try {
       const result = await deleteItem(id);
-      if (result.archived) {
-        alert(result.message);
-      }
+      if (result.archived) alert(result.message);
       loadItems();
     } catch (err) {
       alert('Delete failed: ' + err.message);
     }
   }
 
-  const f = (k) => e => setForm(p => ({ ...p, [k]: e.target.value }));
+  const f = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
 
   return (
     <div className="grid md:grid-cols-2 gap-8">
@@ -218,7 +281,9 @@ function ItemsTab() {
               <label className="label">Category</label>
               <input className="input" value={form.category} onChange={f('category')} placeholder="e.g. Sanctuary" list="cats" />
               <datalist id="cats">
-                {['Sanctuary', 'Icons', 'Church Furniture', 'Liturgical Vestments', 'Education'].map(c => <option key={c} value={c} />)}
+                {['Sanctuary', 'Icons', 'Church Furniture', 'Liturgical Vestments', 'Education',
+                  'Monastery Needs', 'Church Equipment', 'Homeless Outreach', 'Youth Ministry', 'Service Supplies'
+                ].map(c => <option key={c} value={c} />)}
               </datalist>
             </div>
             <div>
@@ -255,57 +320,33 @@ function ItemsTab() {
                 return (
                   <div key={i} className="bg-sand rounded-lg p-3 flex flex-col gap-2">
                     <div className="flex gap-2 items-center">
-                      <input
-                        className="input flex-1 text-sm"
-                        placeholder={`Phase ${i + 1} label (optional)`}
-                        value={phase.label}
-                        onChange={e => setPhases(ps => ps.map((p, idx) => idx === i ? { ...p, label: e.target.value } : p))}
-                      />
+                      <input className="input flex-1 text-sm" placeholder={`Phase ${i + 1} label (optional)`} value={phase.label}
+                        onChange={e => setPhases(ps => ps.map((p, idx) => idx === i ? { ...p, label: e.target.value } : p))} />
                       {phases.length > 1 && (
                         <button type="button" onClick={() => setPhases(ps => ps.filter((_, idx) => idx !== i))}
-                          className="text-red-400 hover:text-red-600 text-xs font-semibold flex-shrink-0">
-                          Remove
-                        </button>
+                          className="text-red-400 hover:text-red-600 text-xs font-semibold flex-shrink-0">Remove</button>
                       )}
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <label className="text-xs text-gray-500 mb-1 block">Quantity</label>
-                        <input
-                          className="input text-sm"
-                          type="number" min="1"
-                          value={phase.quantity}
-                          onChange={e => setPhases(ps => ps.map((p, idx) => idx === i ? { ...p, quantity: e.target.value } : p))}
-                        />
+                        <input className="input text-sm" type="number" min="1" value={phase.quantity}
+                          onChange={e => setPhases(ps => ps.map((p, idx) => idx === i ? { ...p, quantity: e.target.value } : p))} />
                       </div>
                       <div>
                         <label className="text-xs text-gray-500 mb-1 block">Needed By</label>
-                        <input
-                          className="input text-sm"
-                          type="date"
-                          value={phase.date}
-                          onChange={e => setPhases(ps => ps.map((p, idx) => idx === i ? { ...p, date: e.target.value } : p))}
-                        />
+                        <input className="input text-sm" type="date" value={phase.date}
+                          onChange={e => setPhases(ps => ps.map((p, idx) => idx === i ? { ...p, date: e.target.value } : p))} />
                       </div>
                     </div>
-                    <input
-                      className="input text-sm"
-                      placeholder="Why is this needed by that date? (optional)"
-                      value={phase.notes || ''}
-                      onChange={e => setPhases(ps => ps.map((p, idx) => idx === i ? { ...p, notes: e.target.value } : p))}
-                    />
-                    {subtotal > 0 && (
-                      <p className="text-xs text-right text-navy font-semibold">
-                        Subtotal: ${subtotal.toFixed(2)}
-                      </p>
-                    )}
+                    <input className="input text-sm" placeholder="Why is this needed by that date? (optional)" value={phase.notes || ''}
+                      onChange={e => setPhases(ps => ps.map((p, idx) => idx === i ? { ...p, notes: e.target.value } : p))} />
+                    {subtotal > 0 && <p className="text-xs text-right text-navy font-semibold">Subtotal: ${subtotal.toFixed(2)}</p>}
                   </div>
                 );
               })}
               <button type="button" onClick={() => setPhases(ps => [...ps, { label: '', quantity: '1', date: '', notes: '' }])}
-                className="text-sm text-gold hover:text-gold-dark font-semibold text-left">
-                + Add Phase
-              </button>
+                className="text-sm text-gold hover:text-gold-dark font-semibold text-left">+ Add Phase</button>
               {(() => {
                 const unitCost = parseFloat(form.cost) || 0;
                 const total = phases.reduce((s, p) => s + (parseInt(p.quantity) || 0) * unitCost, 0);
@@ -331,7 +372,7 @@ function ItemsTab() {
             <label className="label">Payment Method</label>
             <select className="input" value={form.payment_method} onChange={f('payment_method')}>
               <option value="">— Select —</option>
-              <option value="direct_vendor">Direct to Vendor (Venmo, Zelle, PayPal, etc.)</option>
+              <option value="direct_vendor">Direct to Vendor (Venmo, Zelle, PayPal, Apple Pay, Cash App)</option>
               <option value="online_purchase">Online Purchase (Amazon, eBay, etc.)</option>
               <option value="church_fund">Church General Fund — Donor sends to church fund with item noted in memo</option>
               <option value="other">Other — Custom Instructions</option>
@@ -340,60 +381,56 @@ function ItemsTab() {
           {(form.payment_method === 'other' || form.payment_method === 'direct_vendor' || form.payment_method === 'church_fund') && (
             <div>
               <label className="label">Payment Instructions <span className="text-gray-400 font-normal">(shown to donor)</span></label>
-              <textarea className="input resize-none" rows={2} value={form.payment_instructions} onChange={f('payment_instructions')} placeholder="e.g. Send via Venmo to @username, note 'Candles for St. Mark'" />
+              <textarea className="input resize-none" rows={2} value={form.payment_instructions} onChange={f('payment_instructions')}
+                placeholder="e.g. Send via Venmo to @username, note 'Candles for St. Mark'" />
             </div>
           )}
+
+          {/* IMAGE UPLOAD */}
           <div>
-            <label className="label">Item Images <span className="text-gray-400 font-normal">(select multiple)</span></label>
-            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={handleFiles}
-              className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-gold-light file:text-navy file:font-semibold hover:file:bg-gold cursor-pointer" />
+            <label className="label">Item Images</label>
+            <ImageUploadBox onFiles={handleNewFiles} />
             {images.length > 0 && (
               <div className="mt-3 flex flex-wrap gap-3">
                 {images.map((img, i) => (
                   <div key={i} className="relative group">
-                    <img src={img.preview} className="w-20 h-20 rounded-lg object-cover border-2 border-sand-dark" alt={`img-${i}`} />
+                    <img src={img.preview} className="w-20 h-20 rounded-lg object-cover border-2 border-sand-dark" alt="" />
                     {i === 0 && <span className="absolute -top-1 -left-1 bg-gold text-navy text-[9px] font-bold px-1 rounded">Main</span>}
                     <div className="absolute inset-0 bg-black/50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
                       <button type="button" onClick={() => openCrop(i)}
-                        className="text-white text-xs font-semibold bg-gold/80 px-2 py-0.5 rounded hover:bg-gold">
-                        Crop
-                      </button>
+                        className="text-white text-xs font-semibold bg-gold/80 px-2 py-0.5 rounded hover:bg-gold">Crop</button>
                       <button type="button" onClick={() => removeImage(i)}
-                        className="text-white text-xs font-semibold bg-red-500/80 px-2 py-0.5 rounded hover:bg-red-600">
-                        Remove
-                      </button>
+                        className="text-white text-xs font-semibold bg-red-500/80 px-2 py-0.5 rounded hover:bg-red-600">Remove</button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-            {cropSrc && (
-              <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-                <div className="bg-white rounded-xl w-full max-w-lg p-4">
-                  <p className="font-bold text-navy mb-3">Adjust Crop</p>
-                  <div className="relative w-full h-64 rounded-lg overflow-hidden bg-black">
-                    <Cropper image={cropSrc} crop={crop} zoom={zoom} aspect={16 / 9}
-                      onCropChange={setCrop} onZoomChange={setZoom} onCropComplete={onCropComplete} />
-                  </div>
-                  <div className="mt-3 flex items-center gap-3">
-                    <label className="text-xs text-gray-500 flex-shrink-0">Zoom</label>
-                    <input type="range" min={1} max={3} step={0.05} value={zoom}
-                      onChange={e => setZoom(Number(e.target.value))} className="flex-1 accent-gold" />
-                  </div>
-                  <div className="flex gap-2 mt-4">
-                    <button type="button" onClick={applyCrop}
-                      className="flex-1 bg-gold text-navy font-semibold py-2 rounded-lg hover:bg-gold-dark transition-colors">
-                      Apply Crop
-                    </button>
-                    <button type="button" onClick={() => { setCropSrc(null); setCropIndex(null); }}
-                      className="flex-1 bg-gray-100 text-gray-600 font-semibold py-2 rounded-lg hover:bg-gray-200 transition-colors">
-                      Skip (Keep Original)
-                    </button>
-                  </div>
+          </div>
+
+          {cropSrc && (
+            <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl w-full max-w-lg p-4">
+                <p className="font-bold text-navy mb-3">Adjust Crop</p>
+                <div className="relative w-full h-64 rounded-lg overflow-hidden bg-black">
+                  <Cropper image={cropSrc} crop={crop} zoom={zoom} aspect={16 / 9}
+                    onCropChange={setCrop} onZoomChange={setZoom} onCropComplete={onCropComplete} />
+                </div>
+                <div className="mt-3 flex items-center gap-3">
+                  <label className="text-xs text-gray-500 flex-shrink-0">Zoom</label>
+                  <input type="range" min={1} max={3} step={0.05} value={zoom}
+                    onChange={e => setZoom(Number(e.target.value))} className="flex-1 accent-gold" />
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button type="button" onClick={applyCrop}
+                    className="flex-1 bg-gold text-navy font-semibold py-2 rounded-lg hover:bg-gold-dark transition-colors">Apply Crop</button>
+                  <button type="button" onClick={() => { setCropSrc(null); setCropIndex(null); }}
+                    className="flex-1 bg-gray-100 text-gray-600 font-semibold py-2 rounded-lg hover:bg-gray-200 transition-colors">Skip</button>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
           <button type="submit" disabled={submitting} className="btn-primary">
             {submitting ? 'Adding...' : 'Add Item'}
           </button>
@@ -417,7 +454,6 @@ function ItemsTab() {
 }
 
 function ItemRow({ item, onDelete, onRefresh }) {
-  const [showExtra, setShowExtra] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [editImages, setEditImages] = useState([]);
@@ -425,7 +461,6 @@ function ItemRow({ item, onDelete, onRefresh }) {
   const [deletedPhaseIds, setDeletedPhaseIds] = useState([]);
   const [deletedImageIds, setDeletedImageIds] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [imageFile, setImageFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const imgSrc = item.primary_image || item.image_url;
 
@@ -458,25 +493,38 @@ function ItemRow({ item, onDelete, onRefresh }) {
     setEditing(true);
   }
 
+  async function handleAddImages(files) {
+    setUploading(true);
+    try {
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append('image', file);
+        await addItemImage(item.id, fd);
+      }
+      const imagesData = await getItemImages(item.id).then(d => d.images);
+      setEditImages(imagesData.map((img, i) => ({ ...img, sort_order: img.sort_order ?? i })));
+      onRefresh();
+    } catch (err) {
+      alert('Upload failed: ' + err.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function handleSave() {
     setSaving(true);
     try {
       await updateItem(item.id, editForm);
-
-      // Phase saves
       for (const ph of editPhases) {
         const phData = { label: ph.phase_label, quantity: ph.quantity, date: ph.target_date, notes: ph.phase_notes };
         if (ph.id) await updateItemPhase(item.id, ph.id, phData);
         else await addItemPhase(item.id, phData);
       }
       for (const pid of deletedPhaseIds) await deleteItemPhase(item.id, pid);
-
-      // Image reorder
       if (editImages.length > 0) {
         await reorderItemImages(item.id, editImages.map((img, i) => ({ id: img.id, sort_order: i })));
       }
       for (const imgId of deletedImageIds) await deleteItemImage(item.id, imgId);
-
       setEditing(false);
       onRefresh();
     } catch (err) {
@@ -512,23 +560,6 @@ function ItemRow({ item, onDelete, onRefresh }) {
     setEditPhases(ps => ps.filter((_, idx) => idx !== i));
   }
 
-  async function handleAddImage(e) {
-    const f = e.target.files[0];
-    if (!f) return;
-    setImageFile(f);
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append('image', f);
-      await addItemImage(item.id, fd);
-      onRefresh();
-    } catch (err) {
-      alert('Upload failed: ' + err.message);
-    } finally {
-      setUploading(false);
-    }
-  }
-
   return (
     <div className="bg-white rounded-lg shadow-sm p-4">
       <div className="flex gap-3 items-start">
@@ -540,26 +571,22 @@ function ItemRow({ item, onDelete, onRefresh }) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-bold text-navy text-sm truncate">{item.title}</p>
-          <p className="text-xs text-gray-400">{item.category} &bull; ${item.cost || 0}</p>
+          <p className="text-xs text-gray-400">{item.category} • ${item.cost || 0}</p>
           {item.item_status !== 'available' && (
             <span className="text-xs text-orange-600 font-semibold">{item.item_status}</span>
           )}
         </div>
         <div className="flex gap-2 flex-shrink-0">
-          <button onClick={() => setShowExtra(!showExtra)} className="text-blue-400 hover:text-blue-600 text-xs font-semibold">
-            {showExtra ? 'Hide' : 'More'}
-          </button>
-          <button onClick={editing ? () => setEditing(false) : openEdit} className="text-gold hover:text-gold-dark text-xs font-semibold">
+          <button onClick={editing ? () => setEditing(false) : openEdit}
+            className="text-gold hover:text-gold-dark text-xs font-semibold">
             {editing ? 'Close' : 'Edit'}
           </button>
-          <button onClick={() => onDelete(item.id)} className="text-red-400 hover:text-red-600 text-xs font-semibold">
-            Delete
-          </button>
+          <button onClick={() => onDelete(item.id)} className="text-red-400 hover:text-red-600 text-xs font-semibold">Delete</button>
         </div>
       </div>
+
       {editing && (
         <div className="mt-3 pt-3 border-t border-sand-dark flex flex-col gap-3">
-          {/* Basic fields */}
           <input className="input text-sm" placeholder="Title" value={editForm.title || ''} onChange={ef('title')} />
           <textarea className="input text-sm resize-none" rows={2} placeholder="Purpose / Impact" value={editForm.purpose_impact || ''} onChange={ef('purpose_impact')} />
           <div className="grid grid-cols-2 gap-2">
@@ -597,19 +624,19 @@ function ItemRow({ item, onDelete, onRefresh }) {
               <option value="possible">Tax Receipt: Possible</option>
               <option value="no">Tax Receipt: No</option>
             </select>
-            <input className="input text-sm" type="url" placeholder="Reference Link (optional)" value={editForm.link || ''} onChange={ef('link')} />
+            <input className="input text-sm" type="url" placeholder="Reference Link" value={editForm.link || ''} onChange={ef('link')} />
           </div>
           <div>
-            <label className="text-xs text-gray-500 mb-1 block">Church Treasurer Email (private — for tax receipts)</label>
+            <label className="text-xs text-gray-500 mb-1 block">Church Treasurer Email (private)</label>
             <input className="input text-sm" type="email" placeholder="treasurer@church.org" value={editForm.treasurer_email || ''} onChange={ef('treasurer_email')} />
           </div>
           <div>
             <label className="text-xs text-gray-500 mb-1 block">Payment Method</label>
             <select className="input text-sm" value={editForm.payment_method || ''} onChange={ef('payment_method')}>
               <option value="">— Select —</option>
-              <option value="direct_vendor">Direct to Vendor</option>
-              <option value="online_purchase">Online Purchase</option>
-              <option value="church_fund">Church General Fund — Donor sends to church fund with item noted in memo</option>
+              <option value="direct_vendor">Direct to Vendor (Venmo, Zelle, PayPal, Apple Pay, Cash App)</option>
+              <option value="online_purchase">Online Purchase (Amazon, eBay, etc.)</option>
+              <option value="church_fund">Church General Fund — with item noted in memo</option>
               <option value="other">Other — Custom Instructions</option>
             </select>
           </div>
@@ -618,7 +645,7 @@ function ItemRow({ item, onDelete, onRefresh }) {
             <textarea className="input text-sm resize-none" rows={2} value={editForm.payment_instructions || ''} onChange={ef('payment_instructions')} placeholder="e.g. Send via Venmo to @username" />
           </div>
 
-          {/* Phases */}
+          {/* PHASES */}
           <div>
             <p className="text-xs font-semibold text-navy mb-2">Phases</p>
             <div className="flex flex-col gap-2">
@@ -629,22 +656,23 @@ function ItemRow({ item, onDelete, onRefresh }) {
                     <input className="input text-xs" type="number" min="1" placeholder="Qty" value={ph.quantity || ''} onChange={e => updatePhase(i, 'quantity', e.target.value)} />
                     <input className="input text-xs" type="date" value={ph.target_date || ''} onChange={e => updatePhase(i, 'target_date', e.target.value)} />
                   </div>
-                  <input className="input text-xs" placeholder="Why is this needed by that date? (optional)" value={ph.phase_notes || ''} onChange={e => updatePhase(i, 'phase_notes', e.target.value)} />
+                  <input className="input text-xs" placeholder="Notes (optional)" value={ph.phase_notes || ''} onChange={e => updatePhase(i, 'phase_notes', e.target.value)} />
                   <button type="button" onClick={() => removePhase(i)} className="text-xs text-red-400 hover:text-red-600 font-semibold self-end">Remove phase</button>
                 </div>
               ))}
               <button type="button" onClick={() => setEditPhases(ps => [...ps, { phase_label: '', quantity: 1, target_date: '' }])}
-                className="text-xs text-gold hover:text-gold-dark font-semibold text-left">
-                + Add Phase
-              </button>
+                className="text-xs text-gold hover:text-gold-dark font-semibold text-left">+ Add Phase</button>
             </div>
           </div>
 
-          {/* Images */}
-          {editImages.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-navy mb-2">Images — drag to reorder</p>
-              <div className="flex flex-col gap-2">
+          {/* IMAGES — add + reorder in same place */}
+          <div>
+            <p className="text-xs font-semibold text-navy mb-2">Images</p>
+            <ImageUploadBox onFiles={handleAddImages} />
+            {uploading && <p className="text-xs text-gold font-semibold mt-2 text-center">Uploading...</p>}
+            {editImages.length > 0 && (
+              <div className="mt-3 flex flex-col gap-2">
+                <p className="text-xs text-gray-400">Use arrows to reorder • First image is the main photo</p>
                 {editImages.map((img, i) => (
                   <div key={img.id || i} className="flex items-center gap-2 bg-sand rounded-lg p-2">
                     <img src={img.image_url} alt="" className="w-12 h-12 rounded object-cover flex-shrink-0 border border-sand-dark" />
@@ -657,8 +685,8 @@ function ItemRow({ item, onDelete, onRefresh }) {
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="flex gap-2">
             <button type="button" onClick={handleSave} disabled={saving}
@@ -670,22 +698,6 @@ function ItemRow({ item, onDelete, onRefresh }) {
               Cancel
             </button>
           </div>
-        </div>
-      )}
-
-      {showExtra && (
-        <div className="mt-3 pt-3 border-t border-sand-dark">
-          <p className="text-xs text-gray-500 mb-2">Add another image:</p>
-          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAddImage}
-            className="text-xs text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:bg-gold-light file:text-navy file:text-xs hover:file:bg-gold cursor-pointer" />
-          {uploading && <p className="text-xs text-gold mt-1">Uploading...</p>}
-          {item.images && item.images.length > 0 && (
-            <div className="flex gap-2 mt-2 flex-wrap">
-              {item.images.map((src, i) => (
-                <img key={i} src={src} alt="" className="w-12 h-12 rounded object-cover border border-sand-dark" />
-              ))}
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -700,9 +712,7 @@ function DonationsTab() {
 
   useEffect(() => {
     setLoading(true);
-    getAdminDonations(page, statusFilter)
-      .then(setData)
-      .finally(() => setLoading(false));
+    getAdminDonations(page, statusFilter).then(setData).finally(() => setLoading(false));
   }, [page, statusFilter]);
 
   const statuses = ['', 'commitment_received', 'item_sent', 'delivered', 'tax_receipt_sent', 'completed'];
@@ -712,14 +722,11 @@ function DonationsTab() {
       <div className="flex flex-wrap gap-2 mb-4">
         {statuses.map(s => (
           <button key={s || 'all'} onClick={() => { setStatusFilter(s); setPage(1); }}
-            className={`px-3 py-1 rounded-full text-sm font-semibold border transition-colors ${
-              statusFilter === s ? 'bg-gold text-navy-dark border-gold' : 'border-gold text-navy hover:bg-gold-light'
-            }`}>
+            className={`px-3 py-1 rounded-full text-sm font-semibold border transition-colors ${statusFilter === s ? 'bg-gold text-navy-dark border-gold' : 'border-gold text-navy hover:bg-gold-light'}`}>
             {s ? STATUS_LABELS[s] : 'All'}
           </button>
         ))}
       </div>
-
       {loading ? (
         <div className="flex justify-center py-10"><Spinner /></div>
       ) : data.donations.length === 0 ? (
@@ -742,16 +749,11 @@ function DonationsTab() {
           ))}
         </div>
       )}
-
       {data.total > 20 && (
         <div className="flex justify-center gap-3 mt-6">
-          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn-secondary text-sm px-4 py-2 disabled:opacity-40">
-            Previous
-          </button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="btn-secondary text-sm px-4 py-2 disabled:opacity-40">Previous</button>
           <span className="py-2 text-sm text-gray-500">Page {page} of {Math.ceil(data.total / 20)}</span>
-          <button onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(data.total / 20)} className="btn-secondary text-sm px-4 py-2 disabled:opacity-40">
-            Next
-          </button>
+          <button onClick={() => setPage(p => p + 1)} disabled={page >= Math.ceil(data.total / 20)} className="btn-secondary text-sm px-4 py-2 disabled:opacity-40">Next</button>
         </div>
       )}
     </div>
@@ -763,10 +765,7 @@ function ConnectionsTab() {
   const [loading, setLoading] = useState(true);
 
   function load() {
-    fetch('/api/connections')
-      .then(r => r.json())
-      .then(setConnections)
-      .finally(() => setLoading(false));
+    fetch('/api/connections').then(r => r.json()).then(setConnections).finally(() => setLoading(false));
   }
 
   useEffect(() => { load(); }, []);
@@ -776,9 +775,7 @@ function ConnectionsTab() {
 
   return (
     <div className="flex flex-col gap-3">
-      {connections.map(c => (
-        <ConnectionCard key={c.id} connection={c} onDelete={load} />
-      ))}
+      {connections.map(c => <ConnectionCard key={c.id} connection={c} onDelete={load} />)}
     </div>
   );
 }
@@ -816,25 +813,16 @@ function ConnectionCard({ connection: c, onDelete }) {
           {c.phone && <p className="text-sm text-gray-500 mt-0.5">{c.phone}</p>}
         </div>
         <div className="text-right flex flex-col items-end gap-1">
-          {c.offer_type && (
-            <span className="inline-block bg-sand-dark text-navy text-xs font-semibold px-2 py-1 rounded-full">{c.offer_type}</span>
-          )}
+          {c.offer_type && <span className="inline-block bg-sand-dark text-navy text-xs font-semibold px-2 py-1 rounded-full">{c.offer_type}</span>}
           <p className="text-xs text-gray-400">{formatDate(c.created_at)}</p>
           <button onClick={handleDelete} className="text-xs text-red-400 hover:text-red-600 font-semibold">Delete</button>
         </div>
       </div>
-      {c.description && (
-        <p className="text-sm text-gray-600 mt-3 pt-3 border-t border-sand-dark">{c.description}</p>
-      )}
+      {c.description && <p className="text-sm text-gray-600 mt-3 pt-3 border-t border-sand-dark">{c.description}</p>}
       <div className="mt-3 pt-3 border-t border-sand-dark">
         <label className="text-xs font-semibold text-navy mb-1 block">Internal Notes</label>
-        <textarea
-          className="input text-sm resize-none w-full"
-          rows={2}
-          placeholder="Add private notes here..."
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-        />
+        <textarea className="input text-sm resize-none w-full" rows={2} placeholder="Add private notes here..."
+          value={notes} onChange={e => setNotes(e.target.value)} />
         <button onClick={handleSaveNotes} disabled={saving}
           className="mt-1.5 text-xs bg-gold text-navy font-semibold px-3 py-1 rounded-lg hover:bg-gold-dark transition-colors">
           {saving ? 'Saving...' : saved ? '✓ Saved' : 'Save Notes'}
@@ -846,13 +834,8 @@ function ConnectionCard({ connection: c, onDelete }) {
 
 function StatsTab() {
   const [stats, setStats] = useState(null);
-
-  useEffect(() => {
-    getAdminStats().then(setStats);
-  }, []);
-
+  useEffect(() => { getAdminStats().then(setStats); }, []);
   if (!stats) return <div className="flex justify-center py-10"><Spinner /></div>;
-
   return (
     <div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
