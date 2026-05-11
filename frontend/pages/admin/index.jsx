@@ -129,8 +129,34 @@ function ItemsTab() {
           </div>
           <div>
             <label className="label">Item Image</label>
-            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} className="text-sm text-gray-500 file:mr-3 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:bg-gold-light file:text-navy file:font-semibold hover:file:bg-gold cursor-pointer" />
-            {preview && <img src={preview} className="mt-3 rounded-lg h-32 object-cover" alt="preview" />}
+            <div
+              onDragOver={e => e.preventDefault()}
+              onDrop={e => {
+                e.preventDefault();
+                const f = e.dataTransfer.files[0];
+                if (f) { setFile(f); setPreview(URL.createObjectURL(f)); }
+              }}
+              onClick={() => fileRef.current.click()}
+              className="mt-1 border-2 border-dashed border-gold rounded-xl p-6 text-center cursor-pointer hover:bg-gold-light transition-colors"
+            >
+              {preview ? (
+                <img src={preview} className="mx-auto rounded-lg max-h-40 object-cover" alt="preview" />
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-gray-400">
+                  <span className="text-4xl">📷</span>
+                  <p className="text-sm font-semibold text-navy">Drag & drop an image here</p>
+                  <p className="text-xs">or click to browse</p>
+                  <p className="text-xs text-gray-300">JPG, PNG, or WEBP</p>
+                </div>
+              )}
+              <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleFile} className="hidden" />
+            </div>
+            {preview && (
+              <button type="button" onClick={() => { setFile(null); setPreview(null); if (fileRef.current) fileRef.current.value = ''; }}
+                className="mt-2 text-xs text-red-400 hover:text-red-600 font-semibold">
+                Remove image
+              </button>
+            )}
           </div>
           <button type="submit" disabled={submitting} className="btn-primary">
             {submitting ? 'Adding...' : 'Add Item'}
