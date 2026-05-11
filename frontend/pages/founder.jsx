@@ -14,23 +14,22 @@ export default function FounderPage() {
           alt="Mercurius Yasa"
           className="w-40 h-40 rounded-full object-cover object-top shadow-xl mx-auto mb-5"
         />
-        <h1 className="text-4xl font-bold text-navy mb-2">Mercurius Yasa</h1>
+        <h1 className="text-4xl font-bold text-navy mb-2">Mercurius</h1>
         <p className="text-lg text-gray-600">Founder &amp; Coordinator</p>
       </div>
 
       <div className="bg-white rounded-2xl shadow-md p-8 mb-8">
         <p className="text-gray-700 leading-relaxed mb-4">
-          Fr. Mercurius founded Coptic Donations with a simple vision: that every member of the community should have
-          the opportunity to make a tangible, lasting contribution to the life of the church.
+          &ldquo;I am very excited and blessed to start this initiative with the goal of connecting our Coptic
+          community through meaningful and targeted donation opportunities.
         </p>
         <p className="text-gray-700 leading-relaxed mb-4">
-          Inspired by the ancient Coptic tradition of communal generosity, he believed that connecting donors directly
-          with specific needs — rather than abstract fundraising — would deepen the sense of ownership and spiritual
-          investment in the church&apos;s mission.
+          My hope is simply to make it easier for people to have the opportunity to directly contribute
+          towards targeted needs within churches, monasteries and ministries.
         </p>
         <p className="text-gray-700 leading-relaxed">
-          &quot;When you provide the altar cloth with your own hands,&quot; he often says, &quot;you carry a piece of every
-          liturgy celebrated upon it. That is the beauty of targeted giving.&quot;
+          I pray this can be one small way for us to participate together in supporting and strengthening
+          our community.&rdquo;
         </p>
       </div>
 

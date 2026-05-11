@@ -58,7 +58,7 @@ export default function AboutPage() {
             className="w-36 h-36 rounded-full object-cover object-top shadow-md flex-shrink-0"
           />
           <div>
-            <p className="text-xl font-bold text-navy mb-0.5">Mercurius Yasa</p>
+            <p className="text-xl font-bold text-navy mb-0.5">Mercurius</p>
             <p className="text-gold font-semibold text-sm mb-3">Founder &amp; Coordinator</p>
             <p className="text-gray-600 leading-relaxed text-sm mb-4">
               Mercurius founded Coptic Donations with a simple vision: that every member of our Coptic
