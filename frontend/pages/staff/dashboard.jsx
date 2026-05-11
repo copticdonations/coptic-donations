@@ -506,9 +506,17 @@ function ItemRow({ item, onDelete, onRefresh }) {
     setUploading(true);
     try {
       for (const file of files) {
-        const fd = new FormData();
-        fd.append('image', file);
-        await addItemImage(item.id, fd);
+        if (file.isDriveUrl) {
+          await fetch(`/api/items/${item.id}/images`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image_url: file.url }),
+          });
+        } else {
+          const fd = new FormData();
+          fd.append('image', file);
+          await addItemImage(item.id, fd);
+        }
       }
       const imagesData = await getItemImages(item.id).then(d => d.images);
       setEditImages(imagesData.map((img, i) => ({ ...img, sort_order: img.sort_order ?? i })));
