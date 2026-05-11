@@ -60,11 +60,6 @@ export default function AboutPage() {
           <div>
             <p className="text-xl font-bold text-navy mb-0.5">Mercurius</p>
             <p className="text-gold font-semibold text-sm mb-3">Founder &amp; Coordinator</p>
-            <p className="text-gray-600 leading-relaxed text-sm mb-4">
-              Mercurius founded Coptic Donations with a simple vision: that every member of our Coptic
-              community should have the opportunity to make a tangible, lasting contribution to the life
-              of the church — knowing exactly where their generosity goes and seeing the impact it creates.
-            </p>
             <Link href="/founder" className="text-gold hover:text-gold-dark text-sm font-semibold">
               Read more →
             </Link>
