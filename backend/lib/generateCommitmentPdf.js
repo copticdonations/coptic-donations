@@ -36,28 +36,28 @@ module.exports = function generateCommitmentPdf(data) {
     const contentW = pageW - margin * 2;
 
     // ── Header band ──────────────────────────────────────────────
-    doc.rect(0, 0, pageW, 110).fill(NAVY);
+    doc.rect(0, 0, pageW, 90).fill(NAVY);
     doc
       .fillColor(GOLD)
       .font('Helvetica-Bold')
       .fontSize(22)
-      .text('COPTIC DONATIONS', margin, 28, { width: contentW, align: 'center' });
+      .text('COPTIC DONATIONS', margin, 18, { width: contentW, align: 'center' });
     doc
       .fillColor('#ffffff')
       .font('Helvetica')
       .fontSize(12)
-      .text('Commitment Confirmation', margin, 58, { width: contentW, align: 'center' });
+      .text('Commitment Confirmation', margin, 48, { width: contentW, align: 'center' });
     doc
       .fillColor(GOLD)
       .font('Helvetica-Oblique')
       .fontSize(9)
-      .text('Malachi 3:10', margin, 82, { width: contentW, align: 'center' });
+      .text('Malachi 3:10', margin, 70, { width: contentW, align: 'center' });
 
     // ── Gold rule ─────────────────────────────────────────────────
     doc.moveDown(0);
-    let y = 125;
+    let y = 104;
     doc.moveTo(margin, y).lineTo(pageW - margin, y).strokeColor(GOLD).lineWidth(1.5).stroke();
-    y += 14;
+    y += 10;
 
     // ── Date & tracking ──────────────────────────────────────────
     const dateStr = created_at
@@ -67,22 +67,22 @@ module.exports = function generateCommitmentPdf(data) {
     doc.fillColor(GRAY).font('Helvetica').fontSize(9)
       .text(`Date: ${dateStr}`, margin, y, { continued: true })
       .text(`Tracking Code: ${tracking_code}`, { align: 'right' });
-    y += 24;
+    y += 18;
 
     // ── Section helper ────────────────────────────────────────────
     function sectionTitle(title, yPos) {
-      doc.rect(margin, yPos, contentW, 20).fill(NAVY);
-      doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(10)
-        .text(title, margin + 8, yPos + 5);
-      return yPos + 28;
+      doc.rect(margin, yPos, contentW, 18).fill(NAVY);
+      doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(9)
+        .text(title, margin + 8, yPos + 4);
+      return yPos + 24;
     }
 
     function row(label, value, yPos) {
-      doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(10)
+      doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(9.5)
         .text(label, margin + 4, yPos, { width: 160 });
-      doc.fillColor('#333333').font('Helvetica').fontSize(10)
+      doc.fillColor('#333333').font('Helvetica').fontSize(9.5)
         .text(value || '—', margin + 170, yPos, { width: contentW - 170 });
-      return yPos + 18;
+      return yPos + 16;
     }
 
     // ── Donor Information ─────────────────────────────────────────
@@ -90,7 +90,7 @@ module.exports = function generateCommitmentPdf(data) {
     y = row('Full Name', donor_name, y);
     y = row('Email Address', donor_email, y);
     y = row('Phone Number', donor_phone, y);
-    y += 10;
+    y += 6;
 
     // ── Item Details ──────────────────────────────────────────────
     y = sectionTitle('ITEM DETAILS', y);
@@ -99,28 +99,28 @@ module.exports = function generateCommitmentPdf(data) {
     if (phase_label) y = row('Phase', phase_label, y);
     if (need_by_date) y = row('Needed By', formatDate(need_by_date), y);
     y = row('Tax Receipt Requested', tax_receipt_requested ? 'Yes' : 'No', y);
-    y += 10;
+    y += 6;
 
     // ── Tracking ──────────────────────────────────────────────────
     y = sectionTitle('YOUR TRACKING CODE', y);
-    doc.rect(margin, y, contentW, 32).fill(SAND);
-    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(16)
-      .text(tracking_code, margin, y + 8, { width: contentW, align: 'center' });
-    y += 44;
+    doc.rect(margin, y, contentW, 28).fill(SAND);
+    doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(15)
+      .text(tracking_code, margin, y + 7, { width: contentW, align: 'center' });
+    y += 36;
 
     // ── DISCLAIMER ────────────────────────────────────────────────
-    doc.rect(margin, y, contentW, 70).fill('#fef2f2');
-    doc.rect(margin, y, 4, 70).fill(RED);
-    y += 10;
-    doc.fillColor(RED).font('Helvetica-Bold').fontSize(11)
+    doc.rect(margin, y, contentW, 60).fill('#fef2f2');
+    doc.rect(margin, y, 4, 60).fill(RED);
+    y += 8;
+    doc.fillColor(RED).font('Helvetica-Bold').fontSize(10)
       .text('THIS IS NOT A TAX RECEIPT', margin + 12, y, { width: contentW - 16 });
-    y += 16;
-    doc.fillColor('#7f1d1d').font('Helvetica-Bold').fontSize(9.5)
+    y += 14;
+    doc.fillColor('#7f1d1d').font('Helvetica-Bold').fontSize(8.5)
       .text(
         'Coptic Donations did not and will not receive any money. All funds and items go directly to the relevant church, monastery, ministry, or approved third party. Coptic Donations serves only as a coordinator.',
         margin + 12, y, { width: contentW - 20 }
       );
-    y += 46;
+    y += 40;
 
     // ── Next Steps ────────────────────────────────────────────────
     y = sectionTitle('NEXT STEPS', y);
@@ -132,11 +132,11 @@ module.exports = function generateCommitmentPdf(data) {
     ];
     steps.forEach((step, i) => {
       const stepY = y;
-      doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(10)
+      doc.fillColor(NAVY).font('Helvetica-Bold').fontSize(9.5)
         .text(`${i + 1}.`, margin + 4, stepY, { width: 18, lineBreak: false });
-      doc.fillColor('#333333').font('Helvetica').fontSize(10)
+      doc.fillColor('#333333').font('Helvetica').fontSize(9.5)
         .text(step, margin + 22, stepY, { width: contentW - 26 });
-      y = doc.y + 6;
+      y = doc.y + 4;
     });
 
     // ── Footer ────────────────────────────────────────────────────
