@@ -99,9 +99,11 @@ export default function ItemsPage({ items }) {
       return new Date(b.created_at || 0) - new Date(a.created_at || 0);
     });
 
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const completedCount = items.filter(i => i.item_status === 'completed').length;
   const activeFilterCount = [
-    priority !== 'all', amount !== 'all', quantity !== 'all', status !== 'available', search !== ''
+    activeCategory !== 'All', priority !== 'all', amount !== 'all',
+    quantity !== 'all', status !== 'available', search !== '',
   ].filter(Boolean).length;
 
   function clearAll() {
@@ -129,106 +131,119 @@ export default function ItemsPage({ items }) {
         )}
       </div>
 
-      {/* ── Category tabs ── */}
-      <div className="flex flex-wrap gap-2 justify-center mb-5">
-        {categories.map(cat => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${
-              activeCategory === cat
-                ? 'bg-gold text-navy-dark'
-                : 'bg-white text-navy border border-gold hover:bg-gold hover:text-navy-dark'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-
-      {/* ── Filter panel ── */}
-      <div className="bg-sand rounded-2xl px-5 py-4 mb-6 space-y-3 border border-gold/30">
-        {/* Search + Sort row */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search needs…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-gold/50 rounded-lg text-sm text-navy bg-white focus:outline-none focus:ring-2 focus:ring-gold"
-            />
-          </div>
-          <select
-            value={sort}
-            onChange={e => setSort(e.target.value)}
-            className="border border-gold/50 rounded-lg px-3 py-2 text-sm text-navy bg-white focus:outline-none focus:ring-2 focus:ring-gold"
-          >
-            {SORT_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+      {/* ── Top bar: search + sort + filter toggle ── */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-3">
+        <div className="relative flex-1">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search needs…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 border border-gold/50 rounded-lg text-sm text-navy bg-white focus:outline-none focus:ring-2 focus:ring-gold"
+          />
         </div>
-
-        {/* Filter pills */}
-        <FilterPills
-          label="Priority"
-          value={priority}
-          onChange={setPriority}
-          options={[
-            { value: 'all', label: 'All' },
-            { value: 'urgent', label: 'Urgent (≤30 days)' },
-            { value: 'not-urgent', label: 'Not Urgent' },
-          ]}
-        />
-        <FilterPills
-          label="Amount"
-          value={amount}
-          onChange={setAmount}
-          options={[
-            { value: 'all', label: 'Any' },
-            { value: 'under-100', label: 'Under $100' },
-            { value: '100-500', label: '$100–$500' },
-            { value: '500-2000', label: '$500–$2,000' },
-            { value: 'over-2000', label: 'Over $2,000' },
-          ]}
-        />
-        <FilterPills
-          label="Quantity"
-          value={quantity}
-          onChange={setQuantity}
-          options={[
-            { value: 'all', label: 'Any' },
-            { value: 'single', label: 'Single Item' },
-            { value: 'multiple', label: 'Multiple Needed' },
-          ]}
-        />
-        <FilterPills
-          label="Status"
-          value={status}
-          onChange={setStatus}
-          options={[
-            { value: 'available', label: 'Available Only' },
-            { value: 'all', label: 'Include Committed' },
-          ]}
-        />
-
-        {/* Active filter count + clear */}
-        {activeFilterCount > 0 && (
-          <div className="pt-1">
-            <button onClick={clearAll} className="text-xs text-navy underline hover:text-gold transition-colors">
-              Clear all filters ({activeFilterCount} active)
-            </button>
-          </div>
-        )}
+        <select
+          value={sort}
+          onChange={e => setSort(e.target.value)}
+          className="border border-gold/50 rounded-lg px-3 py-2 text-sm text-navy bg-white focus:outline-none focus:ring-2 focus:ring-gold"
+        >
+          {SORT_OPTIONS.map(o => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <button
+          onClick={() => setFiltersOpen(o => !o)}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold border transition-colors duration-200 ${
+            filtersOpen || activeFilterCount > 0
+              ? 'bg-gold text-navy border-gold'
+              : 'bg-white text-navy border-gold hover:bg-gold hover:text-navy'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M7 8h10M11 12h2M9 16h6" />
+          </svg>
+          Filters
+          {activeFilterCount > 0 && (
+            <span className="bg-navy text-gold text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {activeFilterCount}
+            </span>
+          )}
+          <svg
+            className={`w-4 h-4 transition-transform duration-200 ${filtersOpen ? 'rotate-180' : ''}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
       </div>
+
+      {/* ── Collapsible filter panel ── */}
+      {filtersOpen && (
+        <div className="bg-sand rounded-2xl px-5 py-4 mb-4 space-y-3 border border-gold/30">
+          <FilterPills
+            label="Category"
+            value={activeCategory}
+            onChange={setActiveCategory}
+            options={categories.map(c => ({ value: c, label: c }))}
+          />
+          <FilterPills
+            label="Priority"
+            value={priority}
+            onChange={setPriority}
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'urgent', label: 'Urgent (≤30 days)' },
+              { value: 'not-urgent', label: 'Not Urgent' },
+            ]}
+          />
+          <FilterPills
+            label="Amount"
+            value={amount}
+            onChange={setAmount}
+            options={[
+              { value: 'all', label: 'Any' },
+              { value: 'under-100', label: 'Under $100' },
+              { value: '100-500', label: '$100–$500' },
+              { value: '500-2000', label: '$500–$2,000' },
+              { value: 'over-2000', label: 'Over $2,000' },
+            ]}
+          />
+          <FilterPills
+            label="Quantity"
+            value={quantity}
+            onChange={setQuantity}
+            options={[
+              { value: 'all', label: 'Any' },
+              { value: 'single', label: 'Single Item' },
+              { value: 'multiple', label: 'Multiple Needed' },
+            ]}
+          />
+          <FilterPills
+            label="Status"
+            value={status}
+            onChange={setStatus}
+            options={[
+              { value: 'available', label: 'Available Only' },
+              { value: 'all', label: 'Include Committed' },
+            ]}
+          />
+          {activeFilterCount > 0 && (
+            <div className="pt-1 border-t border-gold/20">
+              <button onClick={clearAll} className="text-xs text-navy underline hover:text-gold transition-colors">
+                Clear all filters ({activeFilterCount} active)
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Results count ── */}
       <p className="text-sm text-gray-500 mb-4">
         Showing <span className="font-semibold text-navy">{filtered.length}</span> item{filtered.length !== 1 ? 's' : ''}
+        {activeFilterCount > 0 && <span className="text-gray-400"> with filters applied</span>}
       </p>
 
       {filtered.length === 0 ? (
