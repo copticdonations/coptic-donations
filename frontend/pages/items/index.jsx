@@ -15,22 +15,81 @@ export async function getServerSideProps() {
 
 const SORT_OPTIONS = [
   { value: 'recent', label: 'Most Recent' },
-  { value: 'need_by_date', label: 'Urgent Need' },
-  { value: 'cost_asc', label: 'Price: Low to High' },
-  { value: 'cost_desc', label: 'Price: High to Low' },
+  { value: 'need_by_date', label: 'Urgent First' },
+  { value: 'cost_asc', label: 'Amount: Low to High' },
+  { value: 'cost_desc', label: 'Amount: High to Low' },
+  { value: 'qty_desc', label: 'Quantity: Most Needed' },
 ];
+
+const NOW = Date.now();
+const URGENT_THRESHOLD = NOW + 30 * 24 * 60 * 60 * 1000;
+
+function FilterPills({ label, options, value, onChange }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs font-bold text-navy uppercase tracking-wide min-w-max">{label}:</span>
+      {options.map(o => (
+        <button
+          key={o.value}
+          onClick={() => onChange(o.value)}
+          className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors duration-150 ${
+            value === o.value
+              ? 'bg-gold text-navy-dark'
+              : 'bg-white text-navy border border-gold hover:bg-gold hover:text-navy-dark'
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 export default function ItemsPage({ items }) {
   const rawCategories = [...new Set(items.map(i => i.category).filter(Boolean))];
   const categories = ['All', ...rawCategories];
+
   const [activeCategory, setActiveCategory] = useState('All');
   const [sort, setSort] = useState('recent');
+  const [search, setSearch] = useState('');
+  const [priority, setPriority] = useState('all');
+  const [amount, setAmount] = useState('all');
+  const [quantity, setQuantity] = useState('all');
+  const [status, setStatus] = useState('available');
 
-  const filtered = (activeCategory === 'All' ? items : items.filter(i => i.category === activeCategory))
+  const filtered = items
+    .filter(i => {
+      if (status === 'available' && i.item_status !== 'available') return false;
+      if (activeCategory !== 'All' && i.category !== activeCategory) return false;
+      if (search) {
+        const q = search.toLowerCase();
+        if (
+          !i.title?.toLowerCase().includes(q) &&
+          !i.description?.toLowerCase().includes(q) &&
+          !i.purpose_impact?.toLowerCase().includes(q) &&
+          !i.service_benefiting?.toLowerCase().includes(q)
+        ) return false;
+      }
+      if (priority === 'urgent') {
+        if (!i.need_by_date || new Date(i.need_by_date) > URGENT_THRESHOLD) return false;
+      }
+      if (priority === 'not-urgent') {
+        if (i.need_by_date && new Date(i.need_by_date) <= URGENT_THRESHOLD) return false;
+      }
+      const cost = i.cost || i.suggested_amount || 0;
+      if (amount === 'under-100' && cost >= 100) return false;
+      if (amount === '100-500' && (cost < 100 || cost > 500)) return false;
+      if (amount === '500-2000' && (cost < 500 || cost > 2000)) return false;
+      if (amount === 'over-2000' && cost <= 2000) return false;
+      if (quantity === 'single' && (i.quantity_needed || 1) > 1) return false;
+      if (quantity === 'multiple' && (i.quantity_needed || 1) <= 1) return false;
+      return true;
+    })
     .slice()
     .sort((a, b) => {
       if (sort === 'cost_asc') return (a.cost || 0) - (b.cost || 0);
       if (sort === 'cost_desc') return (b.cost || 0) - (a.cost || 0);
+      if (sort === 'qty_desc') return (b.quantity_needed || 1) - (a.quantity_needed || 1);
       if (sort === 'need_by_date') {
         if (!a.need_by_date && !b.need_by_date) return 0;
         if (!a.need_by_date) return 1;
@@ -41,6 +100,14 @@ export default function ItemsPage({ items }) {
     });
 
   const completedCount = items.filter(i => i.item_status === 'completed').length;
+  const activeFilterCount = [
+    priority !== 'all', amount !== 'all', quantity !== 'all', status !== 'available', search !== ''
+  ].filter(Boolean).length;
+
+  function clearAll() {
+    setSearch(''); setPriority('all'); setAmount('all'); setQuantity('all');
+    setStatus('available'); setActiveCategory('All'); setSort('recent');
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-10">
@@ -62,32 +129,107 @@ export default function ItemsPage({ items }) {
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between mb-6">
-        <div className="flex flex-wrap gap-2 justify-center">
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${
-                activeCategory === cat
-                  ? 'bg-gold text-navy-dark'
-                  : 'bg-white text-navy border border-gold hover:bg-gold hover:text-navy-dark'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-        <select
-          value={sort}
-          onChange={e => setSort(e.target.value)}
-          className="border border-gold rounded-lg px-3 py-2 text-sm text-navy bg-white focus:outline-none focus:ring-2 focus:ring-gold"
-        >
-          {SORT_OPTIONS.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+      {/* ── Category tabs ── */}
+      <div className="flex flex-wrap gap-2 justify-center mb-5">
+        {categories.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setActiveCategory(cat)}
+            className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors duration-200 ${
+              activeCategory === cat
+                ? 'bg-gold text-navy-dark'
+                : 'bg-white text-navy border border-gold hover:bg-gold hover:text-navy-dark'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
       </div>
+
+      {/* ── Filter panel ── */}
+      <div className="bg-sand rounded-2xl px-5 py-4 mb-6 space-y-3 border border-gold/30">
+        {/* Search + Sort row */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search needs…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-gold/50 rounded-lg text-sm text-navy bg-white focus:outline-none focus:ring-2 focus:ring-gold"
+            />
+          </div>
+          <select
+            value={sort}
+            onChange={e => setSort(e.target.value)}
+            className="border border-gold/50 rounded-lg px-3 py-2 text-sm text-navy bg-white focus:outline-none focus:ring-2 focus:ring-gold"
+          >
+            {SORT_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Filter pills */}
+        <FilterPills
+          label="Priority"
+          value={priority}
+          onChange={setPriority}
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'urgent', label: 'Urgent (≤30 days)' },
+            { value: 'not-urgent', label: 'Not Urgent' },
+          ]}
+        />
+        <FilterPills
+          label="Amount"
+          value={amount}
+          onChange={setAmount}
+          options={[
+            { value: 'all', label: 'Any' },
+            { value: 'under-100', label: 'Under $100' },
+            { value: '100-500', label: '$100–$500' },
+            { value: '500-2000', label: '$500–$2,000' },
+            { value: 'over-2000', label: 'Over $2,000' },
+          ]}
+        />
+        <FilterPills
+          label="Quantity"
+          value={quantity}
+          onChange={setQuantity}
+          options={[
+            { value: 'all', label: 'Any' },
+            { value: 'single', label: 'Single Item' },
+            { value: 'multiple', label: 'Multiple Needed' },
+          ]}
+        />
+        <FilterPills
+          label="Status"
+          value={status}
+          onChange={setStatus}
+          options={[
+            { value: 'available', label: 'Available Only' },
+            { value: 'all', label: 'Include Committed' },
+          ]}
+        />
+
+        {/* Active filter count + clear */}
+        {activeFilterCount > 0 && (
+          <div className="pt-1">
+            <button onClick={clearAll} className="text-xs text-navy underline hover:text-gold transition-colors">
+              Clear all filters ({activeFilterCount} active)
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Results count ── */}
+      <p className="text-sm text-gray-500 mb-4">
+        Showing <span className="font-semibold text-navy">{filtered.length}</span> item{filtered.length !== 1 ? 's' : ''}
+      </p>
 
       {filtered.length === 0 ? (
         <div className="text-center py-20 text-gray-500">
