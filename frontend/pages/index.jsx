@@ -6,11 +6,6 @@ export default function HomePage() {
 
       {/* ── Hero ── */}
       <section className="min-h-[92vh] flex flex-col items-center justify-center text-center px-6 py-24" style={{ background: 'radial-gradient(ellipse at center, #f0dcbb 0%, #eddaba 100%)' }}>
-        <img
-          src="/logo.png"
-          alt="Coptic Donations"
-          className="w-72 h-72 mb-8 object-contain"
-        />
         <h1 className="text-5xl md:text-6xl font-serif font-bold text-navy mb-5 leading-tight">
           Coptic Donations
         </h1>
@@ -22,7 +17,7 @@ export default function HomePage() {
           for those who feel called and are able to contribute.
         </p>
         <div className="flex flex-wrap gap-3 justify-center">
-          <a href="#current-needs" className="btn-primary">View Current Needs</a>
+          <Link href="/items" className="btn-primary">View Current Needs</Link>
           <Link href="/how-it-works" className="btn-secondary">How It Works</Link>
           <a
             href="https://chat.whatsapp.com/JSWL5wJyPdw05y7O5PY8ZI"

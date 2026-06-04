@@ -27,7 +27,8 @@ export default function Header() {
       {/* Nav bar — sticky at top always */}
       <header className="bg-navy shadow-lg sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <Link href="/" className="group">
+          <Link href="/" className="group flex items-center gap-2">
+            <img src="/logo.png" alt="" className="w-8 h-8 object-contain" />
             <div className="text-gold font-serif text-lg font-bold leading-tight group-hover:text-gold-light transition-colors">
               Coptic Donations
             </div>
