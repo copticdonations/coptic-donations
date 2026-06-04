@@ -1,21 +1,6 @@
 import Link from 'next/link';
-import { formatCurrency } from '../lib/utils';
 
-export async function getServerSideProps() {
-  try {
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3001';
-    const res = await fetch(`${backendUrl}/api/items`);
-    const data = await res.json();
-    return { props: { items: data.items || [] } };
-  } catch {
-    return { props: { items: [] } };
-  }
-}
-
-export default function HomePage({ items }) {
-  const featured = items.filter(i => i.item_status === 'available').slice(0, 3);
-  const completedCount = items.filter(i => i.item_status === 'completed').length;
-
+export default function HomePage() {
   return (
     <div>
 
@@ -148,31 +133,6 @@ export default function HomePage({ items }) {
         </div>
       </section>
 
-      {/* ── Current Needs Preview ── */}
-      <section id="current-needs" className="py-20 px-6 bg-[#fdfbf8]">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-3xl font-serif font-bold text-navy mb-3 text-center">Current Needs</h2>
-          <p className="text-center text-gray-500 mb-4">
-            Real needs from our Coptic community, waiting for generous hearts.
-          </p>
-          {completedCount > 0 && (
-            <p className="text-center text-sm text-green-600 font-semibold mb-10">
-              {completedCount} item{completedCount !== 1 ? 's' : ''} already fulfilled by our community
-            </p>
-          )}
-          {featured.length === 0 ? (
-            <p className="text-center text-gray-400 py-10">No current needs posted yet. Check back soon.</p>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-              {featured.map(item => <ItemCard key={item.id} item={item} />)}
-            </div>
-          )}
-          <div className="text-center">
-            <Link href="/items" className="btn-primary">View All Current Needs</Link>
-          </div>
-        </div>
-      </section>
-
       {/* ── Get Connected CTA ── */}
       <section className="py-14 px-6 bg-white border-t border-sand-dark">
         <div className="max-w-xl mx-auto text-center">
@@ -189,56 +149,5 @@ export default function HomePage({ items }) {
         method. All commitments are voluntary and may be tax-deductible where indicated.
       </p>
     </div>
-  );
-}
-
-function ItemCard({ item }) {
-  const imgSrc = item.primary_image || item.image_url;
-  const isUrgent = item.need_by_date &&
-    new Date(item.need_by_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-  return (
-    <Link href={`/items/${item.id}`} className="card group block relative">
-      {isUrgent && (
-        <div className="absolute top-2 right-2 z-10 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded">
-          Urgent
-        </div>
-      )}
-      <div className="relative aspect-video bg-sand-dark overflow-hidden">
-        {imgSrc ? (
-          <img
-            src={imgSrc}
-            alt={item.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-gold opacity-30 text-5xl font-serif">✝</div>
-        )}
-        {item.category && (
-          <span className="absolute top-2 left-2 bg-navy text-gold text-xs font-bold px-2 py-1 rounded">
-            {item.category}
-          </span>
-        )}
-      </div>
-      <div className="p-4">
-        <h2 className="text-lg font-bold text-navy group-hover:text-gold transition-colors line-clamp-1">
-          {item.title}
-        </h2>
-        {item.service_benefiting && (
-          <p className="text-xs text-gold font-semibold mt-0.5">{item.service_benefiting}</p>
-        )}
-        <p className="text-sm text-gray-600 mt-1 line-clamp-2">{item.purpose_impact || item.description}</p>
-        <div className="mt-3 flex items-center justify-between">
-          <span className="text-gold font-bold text-lg">{formatCurrency(item.cost || item.suggested_amount)}</span>
-          {item.fully_committed ? (
-            <span className="text-xs bg-gray-200 text-gray-500 px-3 py-1 rounded-full font-semibold">Committed</span>
-          ) : (
-            <span className="text-xs bg-sand text-navy px-3 py-1 rounded-full border border-gold-light font-semibold">
-              {item.remaining_qty > 0 && item.remaining_qty < (item.quantity_needed || 1) ? `${item.remaining_qty} left` : 'Commit'}
-            </span>
-          )}
-        </div>
-      </div>
-    </Link>
   );
 }
